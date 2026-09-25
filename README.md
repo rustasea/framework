@@ -740,6 +740,12 @@ gantt
 
 ---
 
+## Related Projects
+
+- [RustaSea skeleton](https://github.com/rustasea/rustasea) — the application skeleton and Blade variant, scaffolded with `cargo rustasea new`.
+- [opencode-9router](https://github.com/vheins/opencode-9router) — OpenCode plugin that registers 9Router as a provider with automatic model discovery and caching.
+- [local-memory-mcp](https://github.com/vheins/local-memory-mcp) — a lightweight MCP server that gives AI agents persistent memory with semantic search, backed by SQLite.
+
 ## Contributing
 
 Thank you for considering contributing to the RustaSea framework! The contribution guide can be found in [`CONTRIBUTING.md`](CONTRIBUTING.md) — prerequisites, setup, the full development workflow, and coding standards. Release and program history is recorded in [`CHANGELOG.md`](CHANGELOG.md).
