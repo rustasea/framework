@@ -183,5 +183,5 @@ http-body-util = "0.1"
 # Pure-Rust SSH client for the opt-in SFTP disk (ADOPT-025). `ring` (already in
 # the lock via `rustls`) is the crypto backend and `rsa` keeps RSA host/private
 # keys usable; `russh-sftp` speaks the subsystem over a caller-supplied stream.
-russh = { version = "0.63", default-features = false, features = ["ring", "rsa"] }
+russh = { version = "0.64", default-features = false, features = ["ring", "rsa"] }
 russh-sftp = "2.4"
