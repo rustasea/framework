@@ -134,3 +134,25 @@ async fn raw_binds_injection_payload_as_data() {
     assert_eq!(count, Some(0), "payload must be bound, not executed");
     pool.close().await;
 }
+
+/// Positive: a UUID bound into a column declared `UUID` reads back as its
+/// hyphenated string on SQLite, where that declared type has NUMERIC affinity
+/// and the driver reports neither `UUID` nor `BLOB` as the column type.
+#[tokio::test]
+async fn uuid_column_declared_as_uuid_round_trips_on_sqlite() {
+    let pool = DbPool::connect("sqlite::memory:").await.unwrap();
+    pool.execute_raw("CREATE TABLE things (id UUID PRIMARY KEY)", &[])
+        .await
+        .unwrap();
+    let id = uuid::Uuid::new_v4();
+    pool.execute_raw("INSERT INTO things (id) VALUES ($1)", &[Value::Uuid(id)])
+        .await
+        .unwrap();
+
+    let rows = pool
+        .fetch_json("SELECT id FROM things WHERE id = $1", &[Value::Uuid(id)])
+        .await
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["id"].as_str(), Some(id.to_string().as_str()));
+}
