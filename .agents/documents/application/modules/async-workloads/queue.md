@@ -132,11 +132,17 @@ enum QueueError { DuplicateRoute{ type_name: &'static str }, UnknownConnection, 
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M4-Q-01 | Job trait | Todo | `Job<T>` + `#[tries]`/`#[backoff]`/`#[timeout]` |
-| F-M4-Q-02 | Queue::route | Todo | `OnceLock` registry + `DuplicateRoute` |
-| F-M4-Q-03 | Drivers | Todo | `sync`/`database`/`redis` BRPOP + `dispatch`/`chain`/`batch` |
-| F-M4-Q-04 | failed_jobs | Todo | dead-letter + `queue:failed`/`retry` |
-| F-M4-Q-05 | Tests | Todo | chain stop, batch BatchId, duplicate route, retry backoff |
+| F-M4-Q-01 | Job trait | Done | `Job<T>` + `#[tries]`/`#[backoff]`/`#[timeout]` |
+| F-M4-Q-02 | Queue::route | Done | `OnceLock` registry + `DuplicateRoute` |
+| F-M4-Q-03 | Drivers | Partial | `sync`/`database`/`redis` BRPOP + `dispatch`/`chain`/`batch` |
+| F-M4-Q-04 | failed_jobs | Done | dead-letter + `queue:failed`/`retry` |
+| F-M4-Q-05 | Tests | Partial | chain stop, batch BatchId, duplicate route, retry backoff |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M4-Q-03` — sync, database, and Redis drivers plus `dispatch` and `batch` are real (Redis behind the non-default `redis` feature); `Queue::chain` runs its jobs inline on the caller's task and never goes through a routed driver (`crates/rustasea-queue/src/registry.rs:175`).
+> - `F-M4-Q-05` — retry backoff and the batch lifecycle are tested (`crates/rustasea-queue/tests/job_policy.rs`, `job_batches.rs`); there is no chain-stop test, no duplicate-route test, and no test of the `BatchId` returned by `Queue::batch`.
 
 ## 10. Cross-References
 - API: [api-queue](../../api/async-workloads/api-queue.md)

@@ -94,10 +94,16 @@ enum MigrationError { AlreadyApplied, Irreversible { name: String }, ExtensionMi
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M2-MIG-01 | Migration scaffold | Todo | `make:migration --create` + versioned filename + up/down |
-| F-M2-MIG-02 | migrate CLI | Todo | `migrate` idempotent + `migrate:fresh --seed` |
-| F-M2-MIG-03 | Seeder/Factory | Todo | `Seeder::run` + `Factory` sequence + `state` + `Str` reset |
-| F-M2-MIG-04 | Tests | Todo | migration exists, factory reset, MissingTable |
+| F-M2-MIG-01 | Migration scaffold | Partial | `make:migration --create` + versioned filename + up/down |
+| F-M2-MIG-02 | migrate CLI | Done | `migrate` idempotent + `migrate:fresh --seed` |
+| F-M2-MIG-03 | Seeder/Factory | Done | `Seeder::run` + `Factory` sequence + `state` + `Str` reset |
+| F-M2-MIG-04 | Tests | Partial | migration exists, factory reset, MissingTable |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M2-MIG-01` — versioned filenames and `up` / `down` are real (`crates/rustasea-cli/src/generators/kinds/migration.rs:62`); there is no `--create=<table>` flag — the table is guessed from a `create_X_table` name and the template always emits `CREATE TABLE`.
+> - `F-M2-MIG-04` — the generator output, the migration round trip, and the factory reset are tested; there is no missing-table test, and `OrmError::MissingTable` is never constructed outside tests (`crates/rustasea-orm/src/error.rs:41`).
 
 ## 10. Cross-References
 - API: [api-query-builder](../../api/data-orm/api-query-builder.md) — migration CLI adjacency

@@ -101,10 +101,16 @@ enum CacheError { StoreUnavailable, LockAlreadyHeld, TouchFailed }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M4-CACHE-01 | Store | Todo | `Store` + `Repository` + moka + redis |
-| F-M4-CACHE-02 | touch | Todo | `EXPIRE`/TTL reset without value fetch → `bool` |
-| F-M4-CACHE-03 | Lock | Todo | `SET NX EX` + `block` retries + lease expiry |
-| F-M4-CACHE-04 | Tests | Todo | touch extends/missing `false`, Lock contention, store isolation |
+| F-M4-CACHE-01 | Store | Partial | `Store` + `Repository` + moka + redis |
+| F-M4-CACHE-02 | touch | Done | `EXPIRE`/TTL reset without value fetch → `bool` |
+| F-M4-CACHE-03 | Lock | Done | `SET NX EX` + `block` retries + lease expiry |
+| F-M4-CACHE-04 | Tests | Partial | touch extends/missing `false`, Lock contention, store isolation |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M4-CACHE-01` — `Store`, `Repository`, and `CacheManager` are real; the memory store is a lock-guarded map, not `moka` (`crates/rustasea-cache/src/memory.rs:35`), and the Redis store works only behind the non-default `redis` feature.
+> - `F-M4-CACHE-04` — the touch and lock-contention tests exist but are `#[ignore]`d and need the `redis` feature plus a live Redis (`crates/rustasea-cache/src/redis/tests.rs`); there are no memory-store touch or lock tests and no store-isolation test.
 
 ## 10. Cross-References
 - API: [api-cache](../../api/async-workloads/api-cache.md)

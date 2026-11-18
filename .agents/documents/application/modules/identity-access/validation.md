@@ -110,11 +110,17 @@ struct ThrottleConfig { per_minute: u32, key_by: KeyBy } // ip|user|key(fn)
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M3-VAL-01 | Validate macro | Todo | `#[validate]` + `Validatable` + ErrorBag |
-| F-M3-VAL-02 | Strict rules | Todo | `in_array`/`contains`/`doesnt_contain` strict (type+value) |
-| F-M3-VAL-03 | Middleware attrs | Todo | `#[middleware]`/`#[authorize]` wiring |
-| F-M3-VAL-04 | Throttle | Todo | `per_minute(3).by_ip` + 429 + `trusted_proxies` |
-| F-M3-VAL-05 | Tests | Todo | dual-field ErrorBag, strict outline, 429, CORS adjacency |
+| F-M3-VAL-01 | Validate macro | Done | `#[validate]` + `Validatable` + ErrorBag |
+| F-M3-VAL-02 | Strict rules | Partial | `in_array`/`contains`/`doesnt_contain` strict (type+value) |
+| F-M3-VAL-03 | Middleware attrs | Done | `#[middleware]`/`#[authorize]` wiring |
+| F-M3-VAL-04 | Throttle | Done | `per_minute(3).by_ip` + 429 + `trusted_proxies` |
+| F-M3-VAL-05 | Tests | Partial | dual-field ErrorBag, strict outline, 429, CORS adjacency |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M3-VAL-02` — type+value strict matching is real (`crates/rustasea-validation/src/strict.rs`), but the `in:` / `in_array:` arguments are parsed as JSON and anything that fails to parse is dropped (`crates/rustasea-validation/src/rules/support.rs:134`), so a bare-word list such as `in:admin,editor` yields an empty allow-list and rejects every value; only numbers or quoted strings work.
+> - `F-M3-VAL-05` — the two-field `ErrorBag`, strict checks, and 429 are tested; CORS adjacency is a compile-level check only, and there are no outline/BDD tests (strict cases are plain assert lists).
 
 ## 10. Cross-References
 - API: [api-validation](../../api/identity-access/api-validation.md) · [api-auth](../../api/identity-access/api-auth.md) CSRF adjacency

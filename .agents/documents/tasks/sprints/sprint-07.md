@@ -1,6 +1,6 @@
 # Sprint 07 — M6 Advanced (Broadcast, Search, Filesystem, AI SDK, Real-time)
 
-> **Milestone:** M6 · **Window:** 2027-07-01 → 2027-12-31 · **Status:** In Progress — core surfaces landed (M5 generators, M6 broadcast/search/storage/ai), drivers/SDKs pending · Delivered ahead of 2027 window per 2026-09 automation (core landed 2026-09-09)
+> **Milestone:** M6 · **Window:** 2027-07-01 → 2027-12-31 · **Status:** Partial as-built (2026-11-18) — broadcasting, storage, search, JSON:API, mail, the view/Inertia/Livewire layers, real HTTP AI providers (including Gemini and Bedrock through their OpenAI-compatible endpoints), AI queueing, and MCP landed; provider-native Gemini/Bedrock APIs are not implemented · Delivered ahead of 2027 window per 2026-09 automation (core landed 2026-09-09)
 > **Parents:** `../roadmap.md` · `prd.md` FR-600–FR-612 · `fsd.md` FS-M6-01–FS-M6-07 · `design/architecture.md`
 > **Depends On:** M1–M5 (Sprints 01–06)
 > **Crates:** `rustasea-broadcast`, `rustasea-storage`, `rustasea-search`, `rustasea-ai` (`optional` feature, provider adapters feature-flagged)

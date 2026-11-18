@@ -87,10 +87,16 @@ enum TestError { ContainerTimeout, PaginatorMissing }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M5-HARN-01 | TestCase | Todo | `testcontainers` random port + migrate once per binary + teardown |
-| F-M5-HARN-02 | Str reset | Todo | `Factory` sequence reset via hook + `state` sub-factory |
-| F-M5-HARN-03 | Paginator | Todo | `bootstrap-3` view for `paginate(15)` |
-| F-M5-HARN-04 | Tests | Todo | distinct ports parallel, Str reset, teardown clean |
+| F-M5-HARN-01 | TestCase | Done | `testcontainers` random port + migrate once per binary + teardown |
+| F-M5-HARN-02 | Str reset | Partial | `Factory` sequence reset via hook + `state` sub-factory |
+| F-M5-HARN-03 | Paginator | Done | `bootstrap-3` view for `paginate(15)` |
+| F-M5-HARN-04 | Tests | Partial | distinct ports parallel, Str reset, teardown clean |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M5-HARN-02` — the test hook resets only the testing crate's `StrFactory` sequences (`crates/rustasea-testing/src/test_case.rs:81`); the ORM `SequenceFactory`, which is the one with `state`, keeps its own counter outside that registry and needs a manual `reset()`.
+> - `F-M5-HARN-04` — the `Str` reset is tested; no test checks that parallel runs get distinct ports, and teardown appears only in Docker-backed `#[ignore]`d tests with no assertion that the container is gone.
 
 ## 10. Cross-References
 - Tests: [test-cli](../../testing/developer-platform/test-cli.md) · BDD `@testing` · `testing/stubs/harness.stub.rs`

@@ -10,13 +10,15 @@
 
 | Sprint | Milestone | Goal (one-liner) | Window | FRs | Crates | Status |
 |--------|-----------|------------------|--------|-----|--------|--------|
-| **Sprint 01** | **M0** Bootstrap & Core | Bootable skeleton with config, container, providers, shutdown. | 2026-10-01 → 2026-12-31 | FR-000–FR-008 (9) | `rustasea`, `rustasea-foundation`, `rustasea-config`, `rustasea-macros` (scaffold) | Planned |
-| **Sprint 02** | **M1** Routing & HTTP | Expressive HTTP layer with routing, middleware, introspection. | 2026-11-15 → 2027-02-15 | FR-100–FR-109 (10) | `rustasea-router`, `rustasea-http` | Planned |
-| **Sprint 03** | **M2** ORM & Database | Fluent type-safe DB layer with migrations/factories/vector. | 2027-01-01 → 2027-03-31 | FR-200–FR-210 (11) | `rustasea-orm`, `rustasea-macros` (Model) | Planned |
-| **Sprint 04** | **M3** Auth, Middleware & Validation | Hardened auth/validation at Laravel 13 defaults. | 2027-02-15 → 2027-05-15 | FR-300–FR-311 (12) | `rustasea-auth`, `rustasea-validation` | Planned |
-| **Sprint 05** | **M4** Queue, Cache, Scheduling & Events | Observable async workloads. | 2027-04-01 → 2027-06-30 | FR-400–FR-410 (11) | `rustasea-queue`, `rustasea-cache`, `rustasea-events`, `rustasea-schedule` | Planned |
-| **Sprint 06** | **M5** DX, CLI & Testing | Laravel-like DX loop: CLI, generators, testing. | 2027-05-15 → 2027-08-31 | FR-500–FR-509 (10) | `rustasea-cli`, `rustasea-macros`, `rustasea-testing` | Planned |
-| **Sprint 07** | **M6** Advanced (AI/Broadcast/FS/JSON:API) | Differentiate: AI SDK, broadcast/SSE, storage, JSON:API. | 2027-07-01 → 2027-12-31 | FR-600–FR-612 (13) | `rustasea-broadcast`, `rustasea-storage`, `rustasea-search`, `rustasea-ai` | Planned |
+| **Sprint 01** | **M0** Bootstrap & Core | Bootable skeleton with config, container, providers, shutdown. | 2026-10-01 → 2026-12-31 | FR-000–FR-008 (9) | `rustasea`, `rustasea-foundation`, `rustasea-config`, `rustasea-macros` (scaffold) | Partial (as-built) |
+| **Sprint 02** | **M1** Routing & HTTP | Expressive HTTP layer with routing, middleware, introspection. | 2026-11-15 → 2027-02-15 | FR-100–FR-109 (10) | `rustasea-router`, `rustasea-http` | Partial (as-built) |
+| **Sprint 03** | **M2** ORM & Database | Fluent type-safe DB layer with migrations/factories/vector. | 2027-01-01 → 2027-03-31 | FR-200–FR-210 (11) | `rustasea-orm`, `rustasea-macros` (Model) | Done (as-built) |
+| **Sprint 04** | **M3** Auth, Middleware & Validation | Hardened auth/validation at Laravel 13 defaults. | 2027-02-15 → 2027-05-15 | FR-300–FR-311 (12) | `rustasea-auth`, `rustasea-validation` | Partial (as-built) |
+| **Sprint 05** | **M4** Queue, Cache, Scheduling & Events | Observable async workloads. | 2027-04-01 → 2027-06-30 | FR-400–FR-410 (11) | `rustasea-queue`, `rustasea-cache`, `rustasea-events`, `rustasea-schedule` | Partial (as-built) |
+| **Sprint 06** | **M5** DX, CLI & Testing | Laravel-like DX loop: CLI, generators, testing. | 2027-05-15 → 2027-08-31 | FR-500–FR-509 (10) | `rustasea-cli`, `rustasea-macros`, `rustasea-testing` | Partial (as-built) |
+| **Sprint 07** | **M6** Advanced (AI/Broadcast/FS/JSON:API) | Differentiate: AI SDK, broadcast/SSE, storage, JSON:API. | 2027-07-01 → 2027-12-31 | FR-600–FR-612 (13) | `rustasea-broadcast`, `rustasea-storage`, `rustasea-search`, `rustasea-ai` | Partial (as-built) |
+
+> **Planning vs as-built:** windows and scope are the plan. The Status column is the as-built status on 2026-11-18; the authoritative, evidence-backed source is [`docs/milestones.md`](../../../../docs/milestones.md).
 
 **Total FRs:** 76 (M0 9 + M1 10 + M2 11 + M3 12 + M4 11 + M5 10 + M6 13) per `prd.md` §8.
 

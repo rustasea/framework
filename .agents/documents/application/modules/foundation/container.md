@@ -94,10 +94,16 @@ enum ContainerError { NotFound { type_name: &'static str }, AlreadyBound { type_
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M0-CON-01 | Container | Todo | `Bind`/`Singleton`/`Instance`/`Make` |
-| F-M0-CON-02 | Manager::extend | Todo | Closure bound to manager (`manager.prefix()`) |
-| F-M0-CON-03 | Option<T> | Todo | `Make<Option<T>> -> None` when unbound |
+| F-M0-CON-01 | Container | Done | `Bind`/`Singleton`/`Instance`/`Make` |
+| F-M0-CON-02 | Manager::extend | Partial | Closure bound to manager (`manager.prefix()`) |
+| F-M0-CON-03 | Option<T> | Done | `Make<Option<T>> -> None` when unbound |
 | F-M0-CON-04 | Tests | Todo | `ptr_eq` + NotFound + Manager::extend bound |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M0-CON-02` — there is no generic `Manager` in the foundation crate; the only `extend` is `AuthManager::extend` (`crates/rustasea-auth/src/guard.rs:222`), whose factory receives no manager handle.
+> - `F-M0-CON-04` — no container tests were found (`ptr_eq`, unbound resolution, `Manager::extend`); resolution returns `Option`, so a `NotFound` error does not exist.
 
 ## 10. Cross-References
 - Design: `domain.md BC-0` · `tdd.md BC-0` · `architecture.md §3 DAG` · `api-contracts.md §1`

@@ -125,10 +125,15 @@ enum AuthError { GuardMismatch{ expected:String, actual:String }, BadCredentials
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M3-AUTH-01 | JwtGuard | Todo | `jsonwebtoken` HS256 + `argon2` + `login`/`parse`/`refresh`/`logout` |
-| F-M3-AUTH-02 | SessionGuard | Todo | `tower-sessions` store + cookie |
-| F-M3-AUTH-03 | extend | Todo | `Auth::extend` + `GuardMismatch` |
-| F-M3-AUTH-04 | Tests | Todo | login→parse, mismatch, BadCredentials/Expired/Malformed |
+| F-M3-AUTH-01 | JwtGuard | Partial | `jsonwebtoken` HS256 + `argon2` + `login`/`parse`/`refresh`/`logout` |
+| F-M3-AUTH-02 | SessionGuard | Done | `tower-sessions` store + cookie |
+| F-M3-AUTH-03 | extend | Done | `Auth::extend` + `GuardMismatch` |
+| F-M3-AUTH-04 | Tests | Done | login→parse, mismatch, BadCredentials/Expired/Malformed |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M3-AUTH-01` — `login`, `parse`, and `refresh` are real over `jsonwebtoken` HS256 + Argon2; `logout` is a no-op with no revocation or deny-list (`crates/rustasea-auth/src/jwt.rs:270`), and `refresh` does not invalidate the old token. The runnable app wires only `SessionGuard`.
 
 ## 10. Cross-References
 - API: [api-auth](../../api/identity-access/api-auth.md)

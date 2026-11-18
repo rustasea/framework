@@ -90,10 +90,17 @@ trait Shutdownable { async fn shutdown(&self, handle: ShutdownHandle) -> Result<
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M5-CLI-01 | CLI registry | Todo | `clap` derive + `list` + `#[usage]`/`#[help]`/`#[hidden]` |
-| F-M5-CLI-02 | Prompts | Todo | `ask`/`secret`/`confirm`/`choice`/`multiSelect` + table/spinner |
-| F-M5-CLI-03 | Artisan::call | Todo | in-process dispatch + `Shutdownable` |
-| F-M5-CLI-04 | Tests | Todo | `list --json` entries, usage help, confirm abort, `did you mean?` |
+| F-M5-CLI-01 | CLI registry | Partial | `clap` derive + `list` + `#[usage]`/`#[help]`/`#[hidden]` |
+| F-M5-CLI-02 | Prompts | Done | `ask`/`secret`/`confirm`/`choice`/`multiSelect` + table/spinner |
+| F-M5-CLI-03 | Artisan::call | Partial | in-process dispatch + `Shutdownable` |
+| F-M5-CLI-04 | Tests | Partial | `list --json` entries, usage help, confirm abort, `did you mean?` |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M5-CLI-01` — the clap-derive CLI, the registry, and `list` are real; `list` reads usage/help/hidden from the `Command` trait methods (`crates/rustasea-cli/src/artisan.rs:71`), and the `#[usage]` / `#[help]` / `#[hidden]` attribute macros emit constants the registry never reads.
+> - `F-M5-CLI-03` — `Artisan::call` dispatches in-process (`crates/rustasea-cli/src/artisan.rs:107`); `Shutdownable` has no implementation outside tests and `queue:work` does not use it or `drain_with_timeout`.
+> - `F-M5-CLI-04` — "did you mean?" and hidden filtering are tested; no test runs `list --json` and checks the entries, none covers usage/help output, and none covers aborting on `confirm`.
 
 ## 10. Cross-References
 - API: [api-cli](../../api/developer-platform/api-cli.md)

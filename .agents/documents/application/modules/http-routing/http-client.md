@@ -100,10 +100,15 @@ struct ModelInspector { attributes: Vec<String>, relations: Vec<String>, casts: 
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M1-HTTP-01 | Http client | Todo | `reqwest` wrapper + `throw` |
-| F-M1-HTTP-02 | Timeouts | Todo | `Connect`/`Total`/`Idle` classification |
-| F-M1-HTTP-03 | Introspection | Todo | `route:list --json` + `show:model` |
-| F-M1-HTTP-04 | Tests | Todo | 500 throw, idle kind, route:list snapshot |
+| F-M1-HTTP-01 | Http client | Done | `reqwest` wrapper + `throw` |
+| F-M1-HTTP-02 | Timeouts | Done | `Connect`/`Total`/`Idle` classification |
+| F-M1-HTTP-03 | Introspection | Done | `route:list --json` + `show:model` |
+| F-M1-HTTP-04 | Tests | Partial | 500 throw, idle kind, route:list snapshot |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M1-HTTP-04` — the 500 `throw` and the idle timeout kind are tested (`crates/rustasea-http/tests/http_client.rs`, `idle_timeout.rs`); there is no `route:list` snapshot test.
 
 ## 10. Cross-References
 - API: [api-http-client](../../api/http-routing/api-http-client.md)

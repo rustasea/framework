@@ -1,9 +1,10 @@
 # Sprint 02 — M1 Routing & HTTP
 
-> **Milestone:** M1 · **Window:** 2026-11-15 → 2027-02-15 · **Status:** Planned
+> **Milestone:** M1 · **Window:** 2026-11-15 → 2027-02-15 · **Status:** Partial as-built (2026-11-18) — router DSL, controller dispatch, `route:list`, and the HTTP client landed; `show:model` does not read live database columns · Delivered ahead of the planned window
 > **Parents:** `../roadmap.md` · `prd.md` FR-100–FR-109 · `fsd.md` FS-M1-01–FS-M1-06 · `design/architecture.md`
 > **Depends On:** M0 (Sprint 01)
 > **Crates:** `rustasea-router`, `rustasea-http` (uses `rustasea-foundation`, `rustasea-macros`)
+> **Planning vs as-built:** Sprint scope/window is the plan. Live status: [`docs/milestones.md`](../../../../docs/milestones.md) — the authoritative as-built status source (TASK-003).
 
 ---
 

@@ -127,11 +127,18 @@ CLI `route:list` human table columns: `METHOD | PATH | NAME | MIDDLEWARE`.
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M1-RTE-01 | RouteRegistry | Todo | method helpers + group + resource 7 routes |
-| F-M1-RTE-02 | Domain dispatch | Todo | domain > non-domain split + Host extraction |
-| F-M1-RTE-03 | Introspection | Todo | `route:list --json` binding_fields + snapshot |
-| F-M1-RTE-04 | Proc-macro | Todo | `#[route]` |
-| F-M1-RTE-05 | Tests | Todo | resource 7, group prefix, conflict, domain precedence |
+| F-M1-RTE-01 | RouteRegistry | Done | method helpers + group + resource 7 routes |
+| F-M1-RTE-02 | Domain dispatch | Partial | domain > non-domain split + Host extraction |
+| F-M1-RTE-03 | Introspection | Partial | `route:list --json` binding_fields + snapshot |
+| F-M1-RTE-04 | Proc-macro | Done | `#[route]` |
+| F-M1-RTE-05 | Tests | Partial | resource 7, group prefix, conflict, domain precedence |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M1-RTE-02` — domain routes are sorted ahead of non-domain routes (`crates/rustasea-router/src/router.rs:397`), but the `Host` header is never read: the first route on a method+path wins (`crates/rustasea-router/src/dispatch.rs:57`), so a domain route answers for every host and a catch-all on the same path is unreachable.
+> - `F-M1-RTE-03` — `route:list --json` with `binding_fields` is real (`crates/rustasea-cli/src/commands/inspect.rs:44`); no snapshot test compares the output with `route-list.json.snap` or the schema.
+> - `F-M1-RTE-05` — the seven resource routes, domain ordering, and the group name prefix are tested; the group URI prefix and a conflicting/duplicate route have no test.
 
 ## 11. Cross-References
 - Design: `architecture.md BC-1` · `domain.md BC-1` · `tdd.md BC-1` · `api-contracts.md §1` · [ADR-0003](../../../../../docs/adr/ADR-0003-axum-vs-actix.md)

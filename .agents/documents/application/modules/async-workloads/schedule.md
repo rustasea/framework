@@ -116,11 +116,19 @@ impl QueueRegistry {
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M4-SCH-01 | Schedule builder | Todo | `daily`/`cron`/`everyMinute`/`skipIfStillRunning`/`onOneServer` |
-| F-M4-SCH-02 | Ticker | Todo | `schedule:run` 60s tick + `schedule:list` |
-| F-M4-SCH-03 | Pause/Resume | Todo | flat cache/DB + `SchedulePaused`/`Resumed` events |
-| F-M4-SCH-04 | Metrics | Todo | 4 metrics via `Queue` trait |
-| F-M4-SCH-05 | Tests | Todo | pause→resume+skip+onOneServer+mid-exec+metrics |
+| F-M4-SCH-01 | Schedule builder | Partial | `daily`/`cron`/`everyMinute`/`skipIfStillRunning`/`onOneServer` |
+| F-M4-SCH-02 | Ticker | Partial | `schedule:run` 60s tick + `schedule:list` |
+| F-M4-SCH-03 | Pause/Resume | Partial | flat cache/DB + `SchedulePaused`/`Resumed` events |
+| F-M4-SCH-04 | Metrics | Done | 4 metrics via `Queue` trait |
+| F-M4-SCH-05 | Tests | Partial | pause→resume+skip+onOneServer+mid-exec+metrics |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M4-SCH-01` — `daily`, `cron`, `every_minute`, and `skip_if_still_running` are real; `on_one_server` only sets a flag — its `lock_key` is computed but never read, so no distributed lock is taken (`crates/rustasea-schedule/src/command.rs:46`).
+> - `F-M4-SCH-02` — `schedule:run` and `schedule:list` exist, but `schedule:run` runs one tick and exits (no 60s loop; `tick_interval` has no caller), and a due command cannot run: `dispatch_command` always returns `ScheduleError::Dispatch` because no queue dispatch path is wired (`crates/rustasea-schedule/src/scheduler.rs:146`).
+> - `F-M4-SCH-03` — pause/resume flip a process-local `RwLock` and emit `SchedulePaused`/`ScheduleResumed`; the state is not stored in the cache or database (`crates/rustasea-schedule/src/pause.rs:28`), so a pause in one process does not reach another, and the emit fails with `Unhandled` when no listener is registered.
+> - `F-M4-SCH-05` — only the queue metrics and schedule timezone handling are tested; there are no pause→resume, skip-if-running, onOneServer, or mid-execution tests.
 
 ## 10. Cross-References
 - API: [api-events-schedule](../../api/async-workloads/api-events-schedule.md) — schedule section

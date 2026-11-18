@@ -1,8 +1,9 @@
 # Sprint 01 — M0 Bootstrap & Core
 
-> **Milestone:** M0 · **Window:** 2026-10-01 → 2026-12-31 · **Status:** Planned
+> **Milestone:** M0 · **Window:** 2026-10-01 → 2026-12-31 · **Status:** Partial as-built (2026-11-18) — container, provider DAG, config loader mounted at boot, graceful shutdown, and the scaffolder landed; no database/cache/queue container bindings at boot · Delivered ahead of the planned window
 > **Parents:** `../roadmap.md` · `prd.md` FR-000–FR-008 · `fsd.md` FS-M0-01–FS-M0-04 · `design/architecture.md`
 > **Crates:** `rustasea` (umbrella), `rustasea-foundation`, `rustasea-config`, `rustasea-macros` (scaffold)
+> **Planning vs as-built:** Sprint scope/window is the plan. Live status: [`docs/milestones.md`](../../../../docs/milestones.md) — the authoritative as-built status source (TASK-003).
 
 ---
 

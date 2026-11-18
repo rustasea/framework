@@ -1,9 +1,10 @@
 # Sprint 04 — M3 Auth, Middleware & Validation
 
-> **Milestone:** M3 · **Window:** 2027-02-15 → 2027-05-15 · **Status:** Planned
+> **Milestone:** M3 · **Window:** 2027-02-15 → 2027-05-15 · **Status:** Partial as-built (2026-11-18) — JWT/session guards, CSRF, throttle, validation, a database session store, and a database user provider landed; scaffolded apps do not wire the database user provider yet · Delivered ahead of the planned window
 > **Parents:** `../roadmap.md` · `prd.md` FR-300–FR-311 · `fsd.md` FS-M3-01–FS-M3-06 · `design/architecture.md`
 > **Depends On:** M1 (S02), M2 (S03)
 > **Crates:** `rustasea-auth`, `rustasea-validation`
+> **Planning vs as-built:** Sprint scope/window is the plan. Live status: [`docs/milestones.md`](../../../../docs/milestones.md) — the authoritative as-built status source (TASK-003).
 
 ---
 

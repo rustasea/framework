@@ -11,14 +11,16 @@
 
 | Milestone | Focus | Target | Depends On | Sprint | Status |
 |-----------|-------|--------|------------|--------|--------|
-| **M0** | Bootstrap & Core | Q4 2026 (2026-10-01 → 2026-12-31) | — | Sprint 01 | Planned |
-| **M1** | Routing & HTTP | Q4 2026 – Q1 2027 (2026-11-15 → 2027-02-15) | M0 | Sprint 02 | Planned |
-| **M2** | ORM & Database | Q1 2027 (2027-01-01 → 2027-03-31) | M0, M1 | Sprint 03 | Planned |
-| **M3** | Auth, Middleware & Validation | Q1 – Q2 2027 (2027-02-15 → 2027-05-15) | M1, M2 | Sprint 04 | Planned |
-| **M4** | Queue, Cache, Scheduling & Events | Q2 2027 (2027-04-01 → 2027-06-30) | M0, M2, M3 | Sprint 05 | Planned |
-| **M5** | DX, CLI & Testing | Q2 – Q3 2027 (2027-05-15 → 2027-08-31) | M0 – M4 | Sprint 06 | Planned |
-| **M6** | Advanced (Broadcast, Search, FS, AI SDK, Real-time) | Q3 – Q4 2027 (2027-07-01 → 2027-12-31) | M1 – M5 | Sprint 07 | Planned |
+| **M0** | Bootstrap & Core | Q4 2026 (2026-10-01 → 2026-12-31) | — | Sprint 01 | Partial (as-built) |
+| **M1** | Routing & HTTP | Q4 2026 – Q1 2027 (2026-11-15 → 2027-02-15) | M0 | Sprint 02 | Partial (as-built) |
+| **M2** | ORM & Database | Q1 2027 (2027-01-01 → 2027-03-31) | M0, M1 | Sprint 03 | Done (as-built) |
+| **M3** | Auth, Middleware & Validation | Q1 – Q2 2027 (2027-02-15 → 2027-05-15) | M1, M2 | Sprint 04 | Partial (as-built) |
+| **M4** | Queue, Cache, Scheduling & Events | Q2 2027 (2027-04-01 → 2027-06-30) | M0, M2, M3 | Sprint 05 | Partial (as-built) |
+| **M5** | DX, CLI & Testing | Q2 – Q3 2027 (2027-05-15 → 2027-08-31) | M0 – M4 | Sprint 06 | Partial (as-built) |
+| **M6** | Advanced (Broadcast, Search, FS, AI SDK, Real-time) | Q3 – Q4 2027 (2027-07-01 → 2027-12-31) | M1 – M5 | Sprint 07 | Partial (as-built) |
 
+> **Planning vs as-built:** targets and sprint scope are the plan. The Status column is the as-built status on 2026-11-18, delivered ahead of the planned windows; the authoritative, evidence-backed source is [`docs/milestones.md`](../../../docs/milestones.md).
+>
 > Timeline is aspirational; refined after M0 ships. Each milestone ships as a tagged release with migration notes (`CHANGELOG.md` at M0).
 
 ## 2. Dependency DAG (Delivery Order)
