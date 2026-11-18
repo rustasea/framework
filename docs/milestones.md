@@ -44,9 +44,9 @@ section records the reason.
 | **M1** | Routing & HTTP | **Partial** | Router DSL + controller dispatch real (`crates/rustasea-router/src/dispatch.rs:23`, `:62`); `route:list` renders the live 6-column table published at boot via `RouteSource` (`crates/rustasea-cli/src/routes.rs:19`, `:33`; `crates/rustasea-app/src/bootstrap/app.rs:57`; `crates/rustasea-cli/src/commands/inspect.rs:44`); `show:model` now parses `app/models/{snake}.rs` with `syn` for source-level metadata (`crates/rustasea-cli/src/model_inspect.rs:123`, `:217`; `crates/rustasea-cli/src/commands/inspect.rs:129`) and the HTTP client idle (inter-chunk) timeout is now enforced for streamed bodies (`crates/rustasea-http/src/idle.rs:23`, wired in `crates/rustasea-http/src/lib.rs:448`) |
 | **M2** | ORM & Database | **Done** | Real sqlx pool + async execution (`crates/rustasea-orm/src/db.rs:24`, `db/exec.rs:72`); model CRUD (`model_ops.rs:28`), transactions (`tx.rs:67`), custom `Migrator` (`migration.rs:131`, `:189`), eager loading (`eager.rs:59`), pgvector (`vector.rs:100`); `raw`/`raw_sql` remain display-only fragments (`execution.rs:239`, `:247`) |
 | **M3** | Auth, Middleware & Validation | **Partial** | JWT/CSRF/throttle/validation real; session guard now real via `tower-sessions` (`crates/rustasea-auth/src/session.rs:99`, `impl Guard` `:291`, login `:296`, parse `:352`, refresh `:380`, logout `:408`); declarative attributes are consumed at runtime through `MiddlewareRegistry` (`crates/rustasea-router/src/metadata.rs:237`, `dispatch.rs:109`) and `AuthorizeRegistry` (`crates/rustasea-router/src/authorize.rs:216`, `dispatch.rs:135`); store-backed options are real: `DatabaseSessionStore` (`crates/rustasea-auth/src/session/database.rs:74`) and `DatabaseUserProvider` (`crates/rustasea-auth/src/users/provider/database.rs:49`); remaining: scaffolded apps do not wire the database user provider yet (see section) |
-| **M4** | Queue, Cache, Scheduling & Events | **Done** | Database/Redis queue drivers + worker + persistent failed jobs real (`crates/rustasea-queue/src/driver/database.rs:36`, `driver/worker.rs:75`); `queue:work`/`queue:failed`/`queue:retry` CLI real (`crates/rustasea-cli/src/commands/queue.rs:18`, `ops.rs:21`, `:72`); Redis cache store real behind the `redis` feature (`crates/rustasea-cache/src/redis.rs:155`); async listeners enqueue (`crates/rustasea-events/src/dispatcher.rs:82`); declarative job attributes bind through `JobPolicy` at registration (`crates/rustasea-queue/src/policy.rs:21`, `driver/worker.rs:66`); failed `sync` dispatches persist to `failed_jobs` through the registered `database` connection (`crates/rustasea-queue/src/driver.rs:192`) |
+| **M4** | Queue, Cache, Scheduling & Events | **Partial** | Database/Redis queue drivers + worker + persistent failed jobs real (`crates/rustasea-queue/src/driver/database.rs:36`, `driver/worker.rs:75`); `queue:work`/`queue:failed`/`queue:retry` CLI real (`crates/rustasea-cli/src/commands/queue.rs:18`, `ops.rs:21`, `:72`); Redis cache store real behind the `redis` feature (`crates/rustasea-cache/src/redis.rs:155`); async listeners enqueue (`crates/rustasea-events/src/dispatcher.rs:82`); declarative job attributes bind through `JobPolicy` at registration (`crates/rustasea-queue/src/policy.rs:21`, `driver/worker.rs:66`); failed `sync` dispatches persist to `failed_jobs` through the registered `database` connection (`crates/rustasea-queue/src/driver.rs:192`); remaining: the scheduler cannot dispatch a due command (`crates/rustasea-schedule/src/scheduler.rs:146`), schedule pause state is per-process, and after-response events are never flushed (`crates/rustasea-events/src/dispatcher.rs:254`) |
 | **M5** | DX, CLI & Testing | **Partial** | CLI + 17 `make:*` generators real (canonical `enum Kind`: `crates/rustasea-cli/src/generators/mod.rs:19-54`; registrations `crates/rustasea-cli/src/commands/mod.rs:17-31`); `cargo rustasea new --variant` real (`crates/rustasea/src/bin/cargo-rustasea.rs:46`); real `xtask` cycle detection (`xtask/src/cycles.rs:32`) and `xtask migrate` (`xtask/src/main.rs:37`); testcontainers-backed `PostgresTestDb` (`crates/rustasea-testing/src/fixtures.rs:49`) with a Docker-gated suite (`crates/rustasea/tests/feature/`); remaining: integration tests are opt-in and generated controllers still need manual route registration (`crates/rustasea-cli/src/generators/kinds/controller.rs:35`) |
-| **M6** | Advanced (Broadcast, Search, FS, AI) | **Partial** | Broadcast WS/SSE, `object_store` storage + `config/storage.toml` facade, JSON:API, `rustasea-mail`, `rustasea-view`/`rustasea-inertia`/`rustasea-livewire`/`rustasea-scaffold`, real AI HTTP providers (`crates/rustasea-ai/src/providers/mod.rs:27`), AI queueing (`crates/rustasea-ai/src/queue.rs:41`), MCP client (`crates/rustasea-ai/src/mcp/client.rs:40`), and feature-gated pgvector (`crates/rustasea-search/src/pgvector.rs:24`) all real; Gemini/Bedrock served through their OpenAI-compatible endpoints (`crates/rustasea-ai/src/providers/client.rs:225`, `:376`); remaining: provider-native Gemini/Bedrock APIs, and `InProcessProvider` kept for deterministic tests |
+| **M6** | Advanced (Broadcast, Search, FS, AI) | **Partial** | Broadcast WS/SSE, `object_store` storage + `config/storage.toml` facade, JSON:API, `rustasea-mail`, `rustasea-view`/`rustasea-inertia`/`rustasea-livewire`/`rustasea-scaffold`, real AI HTTP providers (`crates/rustasea-ai/src/providers/mod.rs:27`), AI queueing (`crates/rustasea-ai/src/queue.rs:41`), MCP client (`crates/rustasea-ai/src/mcp/client.rs:40`), and feature-gated pgvector (`crates/rustasea-search/src/pgvector.rs:24`) all real; Gemini/Bedrock served through their OpenAI-compatible endpoints (`crates/rustasea-ai/src/providers/client.rs:225`, `:376`); remaining: the agent runtime does not call a provider (`crates/rustasea-ai/src/agent.rs:247`), provider-native Gemini/Bedrock APIs, and `InProcessProvider` kept for deterministic tests |
 
 ---
 
@@ -74,6 +74,7 @@ database, cache, or queue bindings are installed in the container at boot.
 **Partial (reason)**
 - The runnable app's `AppServiceProvider` binds only environment-derived defaults (environment name, password policy, destructive-command guard) — `crates/rustasea-app/src/bootstrap/providers.rs:124`; `AuthServiceProvider` installs the session guard (`:173`).
 - The config loader is mounted at boot (`crates/rustasea-foundation/src/lib.rs:309`, read back through `Application::config` `:299`), but no database pool, cache manager, or queue driver is bound in the container; features that need a pool connect on their own (the queue dashboard, and the database user provider — `crates/rustasea-app/src/bootstrap/auth.rs:320`).
+- `graceful` waits for `SIGTERM`/`SIGINT` but ignores its timeout argument (`crates/rustasea-foundation/src/shutdown.rs:6`); the only enforced drain is axum's graceful shutdown, which has no timeout.
 - The root `bootstrap/` directory is an uncompiled skeleton mirror; its `AppServiceProvider` is a no-op (`bootstrap/providers.rs:17`). The compiled bootstrap is `crates/rustasea-app/src/bootstrap/`.
 
 **Missing**
@@ -111,6 +112,7 @@ reflected.
 
 **Partial (reason)**
 - `show:model` reports declared source metadata only; live DB column types/constraints are not queried (the console has no pool handle).
+- Domain routes are ordered ahead of non-domain routes (`crates/rustasea-router/src/router.rs:397`) but the request `Host` is never matched: the first route on a method+path wins (`crates/rustasea-router/src/dispatch.rs:57`), so a domain route answers for every host and a catch-all on the same path is unreachable.
 
 **Missing**
 - Live database column introspection for `show:model` (source metadata is implemented).
@@ -147,6 +149,7 @@ Tracked by `GAP-001`, `GAP-010`–`GAP-013`.
 
 **Partial (reason)**
 - `raw` / `raw_sql` emit statement fragments for display only — `crates/rustasea-orm/src/execution.rs:239`, `:247`.
+- `insert_or_ignore_returning` returns SQL text that nothing executes (`crates/rustasea-orm/src/model.rs:425`); there is no `find` shorthand (use `query().where_key(id).first(pool)`); `OrmError::MissingTable` is never constructed (`crates/rustasea-orm/src/error.rs:41`); `make:migration` has no `--create` flag.
 
 **Missing**
 - Compile-time `query!` macros (intentionally excluded: CI has no `DATABASE_URL`).
@@ -188,6 +191,9 @@ configured, and scaffolded apps do not wire the database user provider yet.
 - The default session store is in-memory (`MemoryStore`). `driver = "database"` in `config/session.toml` selects the persistent `DatabaseSessionStore` (`crates/rustasea-auth/src/session/database.rs:74`), built by `SessionGuard::from_config_database` (`crates/rustasea-auth/src/session.rs:155`); the `redis` driver is rejected at load time.
 - The guard's default synchronous lookup is the fail-closed `StaticLookup` (`crates/rustasea-auth/src/session.rs:194`). The database-backed `DatabaseUserProvider` (`crates/rustasea-auth/src/users/provider/database.rs:49`) covers registration, login, password reset, verification, and profile updates over the `users` table; the runnable app installs it at boot when the default guard's provider is ORM-backed and the table exists (`crates/rustasea-app/src/bootstrap/auth.rs:320`, called from `crates/rustasea-app/src/main.rs:32`).
 - `DatabaseUserProvider` is exercised on SQLite only (`crates/rustasea-auth/tests/database_user_provider.rs`); it has not been run against Postgres or MySQL.
+- `JwtGuard::logout` is a no-op with no revocation or deny-list (`crates/rustasea-auth/src/jwt.rs:270`).
+- The `in:` / `in_array:` rule parses each list item as JSON and drops what does not parse (`crates/rustasea-validation/src/rules/support.rs:134`), so a bare-word list such as `in:admin,editor` yields an empty allow-list and rejects every value; numbers and quoted strings work.
+- The deserialization allow-list (`SessionPolicy::allow`) is defined but not called; `cache.serializable_classes` is parsed and unused (`crates/rustasea-cache/src/config.rs:191`).
 
 **Missing**
 - Database user provider wiring in the scaffold templates (`crates/rustasea-scaffold/src/templates/`), so generated apps get it without hand-wiring.
@@ -206,13 +212,15 @@ configured, and scaffolded apps do not wire the database user provider yet.
 **Goal recap:** Async workloads, caching, scheduling, and event dispatch with
 observable queue metrics.
 
-**Status: Done** — in-memory cache, the sync queue driver, inline events, and
+**Status: Partial** — in-memory cache, the sync queue driver, inline events, and
 the scheduler exist; the gap-closure program added real `database`/`redis` queue
 drivers with a worker loop, persistent failed jobs, `queue:work`/
 `queue:failed`/`queue:retry` CLI, a real feature-gated Redis cache store,
 queue-backed async listeners, and a runtime consumer for the declarative job
 attributes. A failed inline `sync` dispatch is persisted through the `database`
-connection when one is registered.
+connection when one is registered. Remaining: the scheduler cannot run a due
+command, its pause state is not shared across processes, and events buffered by
+`dispatchAfterResponse` are never delivered.
 
 **Done**
 - In-memory cache store (lock-guarded map; no `moka` dependency) — `crates/rustasea-cache/src/memory.rs:35`.
@@ -229,15 +237,24 @@ connection when one is registered.
 - Broadcast fan-out (ADOPT-022): Pusher HTTP driver (HMAC-SHA256 request signing + MD5 body digest, `pusher`/`private-`/`presence-` channel auth) and a Redis Pub/Sub driver for cross-process fan-out behind the `pusher`/`redis` features (`crates/rustasea-broadcast/src/`, `crates/rustasea-app/src/routes/broadcasting.rs`).
 
 **Partial (reason)**
-- None. Note: a failed `sync` dispatch is written to the `failed_jobs` table only when a `database` connection is registered (`dead_letter_sync`, `crates/rustasea-queue/src/driver.rs:192`; callers `crates/rustasea-queue/src/registry.rs:150`, `:186`). Without one, or when the insert fails, it falls back to the process-local list (`crates/rustasea-queue/src/driver.rs:174`), which does not survive the process.
+- The scheduler cannot dispatch: `dispatch_command` returns `ScheduleError::Dispatch` for every due command because no queue dispatch path is wired (`crates/rustasea-schedule/src/scheduler.rs:146`), so a tick with a due command fails. `schedule:run` runs one tick and exits (`crates/rustasea-cli/src/commands/ops.rs:253`); the 60-second `tick_interval` (`crates/rustasea-schedule/src/scheduler.rs:168`) has no caller.
+- Schedule pause state is a process-local `RwLock` (`crates/rustasea-schedule/src/pause.rs:28`), not stored in the cache or database, so `schedule:pause` in one process does not reach another. `on_one_server` records a flag and a `lock_key` (`crates/rustasea-schedule/src/command.rs:46`) but no lock is taken.
+- `dispatchAfterResponse` only buffers into `EventSink` (`crates/rustasea-events/src/dispatcher.rs:254`); no non-test code drains it, so listeners for after-response events never run. `Dispatcher::dispatch` returns `EventError::Unhandled` when an event has no listener (`:244`), which also makes `schedule:pause` / `schedule:resume` report an error when nothing listens for `SchedulePaused` / `ScheduleResumed`.
+- `Queue::chain` runs its jobs inline on the caller's task and never goes through a routed driver (`crates/rustasea-queue/src/registry.rs:175`).
+- A failed `sync` dispatch is written to the `failed_jobs` table only when a `database` connection is registered (`dead_letter_sync`, `crates/rustasea-queue/src/driver.rs:192`; callers `crates/rustasea-queue/src/registry.rs:150`, `:186`). Without one, or when the insert fails, it falls back to the process-local list (`crates/rustasea-queue/src/driver.rs:174`), which does not survive the process.
+- `JobAttempted` and `QueueBusy` are defined (`crates/rustasea-events/src/event.rs:32`, `:51`) but nothing emits them.
 
 **Missing**
-- None.
+- A queue dispatch path for due scheduled commands, and a long-running `schedule:run` loop.
+- Shared (cache or database) schedule pause state and an `onOneServer` lock.
+- A flush of the after-response event buffer from the HTTP layer.
 
 **Evidence:** `crates/rustasea-cache/src/{memory,redis}.rs`; `crates/rustasea-queue/src/driver.rs:115-197`; `crates/rustasea-queue/src/driver/{database,redis,worker}.rs`; `crates/rustasea-queue/src/policy.rs:21-55`; `crates/rustasea-queue/src/migrations.rs`; `crates/rustasea-events/src/dispatcher.rs:82-182`; `crates/rustasea-schedule/src/lib.rs:20`; `crates/rustasea-queue-dashboard/`; `crates/rustasea-broadcast/`; tasks `GAP-004`–`GAP-009`, `ADOPT-021`, `ADOPT-022`.
 
 **Next actions**
-- None.
+- Wire scheduled commands to the queue and run the scheduler tick on an interval.
+- Persist schedule pause state and take the `onOneServer` lock through the cache `Lock`.
+- Drain `EventSink` after the response is sent.
 
 ---
 
@@ -310,8 +327,9 @@ TOML config facade, JSON:API, the mail crate, the presentation crates
 (view/Inertia/Livewire/scaffold), real HTTP-backed AI providers, AI queueing, and
 MCP are all real. Gemini and Bedrock are served through their OpenAI-compatible
 endpoints and provider-backed embeddings send a dedicated embedding model.
-Remaining: the provider-native Gemini/Bedrock APIs are not implemented, and the
-in-process AI provider is kept for tests.
+Remaining: the agent runtime echoes the prompt instead of calling a provider,
+the provider-native Gemini/Bedrock APIs are not implemented, and the in-process
+AI provider is kept for tests.
 
 **Done**
 - Broadcasting: WebSocket (`axum/ws`, feature-gated default) + SSE + `ShouldBroadcast` — `crates/rustasea-broadcast/Cargo.toml:20`, `:22`; `crates/rustasea-broadcast/src/lib.rs:35`.
@@ -339,13 +357,17 @@ in-process AI provider is kept for tests.
 - Gemini and Bedrock resolve to their OpenAI-compatible endpoints only (`crates/rustasea-ai/src/providers/client.rs:225`, `bedrock_from_env` `:376`): chat completions, streaming, and embeddings in the OpenAI wire format, with `GEMINI_API_KEY` / a Bedrock API key (`AWS_BEARER_TOKEN_BEDROCK`). The provider-native APIs (Gemini `generateContent`, Bedrock Converse with SigV4) are not implemented. Neither provider has been called against the live service from this repository.
 - Provider-backed embeddings are real: `StrToEmbeddings` (`crates/rustasea-ai/src/embed.rs:18`) calls `AiProvider::embeddings`, and the HTTP adapter sends the configured embedding model (`crates/rustasea-ai/src/providers/client.rs:246`, `:313`; `crates/rustasea-ai/src/providers/openai.rs:155`). The engine-agnostic `Str::to_embeddings` in `rustasea-search` still falls back to a deterministic hashing stub when its closure yields no vector (`crates/rustasea-search/src/embeddings.rs:97`).
 - `InProcessProvider` remains for deterministic tests — `crates/rustasea-ai/src/adapters.rs:50`.
+- The agent runtime does not call a model: `Agent::run_inner` echoes the prompt and runs a tool only when the prompt literally contains `tool:name(args)` (`crates/rustasea-ai/src/agent.rs:247`), so `Agent::run`, `prompt_stream`, and the queued `AgentRunJob` never reach an `AiProvider` even though the HTTP providers are real. `provider_from_env` returns a boxed provider that `Ai::register` cannot take directly.
+- Image, audio, rerank, and files exist only on the in-process stand-in; the HTTP adapters cover text, streaming, and (OpenAI-style only) embeddings. `AiProvider` has no `vector_stores` method.
 
 **Missing**
 - Provider-native Gemini and Bedrock adapters.
+- An agent loop that sends the prompt and tool results to an `AiProvider`.
 
 **Evidence:** `crates/rustasea-broadcast/{Cargo.toml,src/lib.rs}`; `crates/rustasea-storage/{Cargo.toml,src/manager.rs:56-171,src/facade.rs}`; `config/storage.toml`; `crates/rustasea-jsonapi/src/wire.rs:7`; `crates/rustasea-mail/`; `crates/rustasea-view/`; `crates/rustasea-ai/src/{providers,queue.rs,mcp,adapters.rs}`; `crates/rustasea-search/{src/pgvector.rs,src/embeddings.rs}`; `crates/rustasea-google/`; `crates/rustasea-config/src/services.rs`; `crates/rustasea-i18n/`; `crates/rustasea-timezone/`; tasks `GAP-012`, `GAP-014`, `GAP-015`, `GAP-020`, `ADOPT-005`, `ADOPT-006`, `ADOPT-026`.
 
 **Next actions**
+- Drive `Agent` through an `AiProvider` (prompt, tool calls, streaming).
 - Add provider-native Gemini/Bedrock adapters where the OpenAI-compatible surface is not enough.
 
 ---

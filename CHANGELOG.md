@@ -151,6 +151,17 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Changed
 
+- 2026-11-18 - Documentation brought in line with the code: `docs/laravel-parity.md`
+  rows for events, batches, unique jobs, sessions, the user provider, mail,
+  notifications, the gate, the password-reset store, the scheduler, and the AI
+  SDK; as-built status on the roadmap and sprint documents; and a checked Status
+  column with open items on the 110 implementation-task rows under
+  `.agents/documents/application/modules/` (55 done, 53 partial, 2 not
+  started). `docs/milestones.md` returns M4 to Partial (the scheduler cannot
+  dispatch a due command, schedule pause state is per-process, and
+  after-response events are never flushed) and records that the AI agent
+  runtime does not call a provider (M0-M6; `docs: sync planning and status
+  documents with the code`).
 - 2026-11-18 - Embeddings requests send an embedding model instead of the
   provider's chat model: `<PROVIDER>_EMBEDDING_MODEL`, else the provider's known
   embedding model (openai, gemini, mistral), else the default model as before
