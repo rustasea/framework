@@ -402,6 +402,27 @@ mod tests {
         assert_eq!(guard.refresh("a.b.c").await, expected_token);
     }
 
+    /// An empty HMAC secret is rejected by the key constructors before any
+    /// encode/decode runs, pinning the jsonwebtoken-12 `Result` mapping: signing
+    /// surfaces `Token`, decoding surfaces `InvalidToken`.
+    #[test]
+    fn empty_secret_maps_to_token_errors() {
+        let guard = JwtGuard::new(
+            JwtConfig {
+                secret: String::new(),
+                ..JwtConfig::default()
+            },
+            Arc::new(AlwaysVerify),
+        );
+        let claims = JwtClaims::issue(&Uuid::new_v4(), "access", 60, &guard.cfg);
+        let err = guard.sign(&claims).expect_err("empty secret must not sign");
+        assert!(matches!(err, AuthError::Token(_)));
+        let err = guard
+            .decode_claims("a.b.c")
+            .expect_err("empty secret must not decode");
+        assert_eq!(err, AuthError::InvalidToken);
+    }
+
     /// A refresh token rotates into a new pair; access token in refresh fails.
     #[tokio::test]
     async fn refresh_rotates_pair() {
