@@ -45,6 +45,8 @@ pub struct HttpProviderConfig {
     pub api_key: Option<String>,
     /// Model used when a request does not override it.
     pub default_model: String,
+    /// Model used for `embeddings`; `None` reuses `default_model`.
+    pub embedding_model: Option<String>,
     /// Wire style spoken by the provider.
     pub style: ProviderStyle,
     /// Credential placement.
@@ -240,6 +242,19 @@ impl HttpProviderConfig {
         }
     }
 
+    /// The model sent with an `embeddings` request.
+    pub fn embedding_model(&self) -> &str {
+        self.embedding_model
+            .as_deref()
+            .unwrap_or(&self.default_model)
+    }
+
+    /// Override the embeddings model.
+    pub fn with_embedding_model(mut self, model: impl Into<String>) -> Self {
+        self.embedding_model = Some(model.into());
+        self
+    }
+
     /// Override the base URL (endpoint root without trailing slash).
     pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = base_url.into().trim_end_matches('/').to_string();
@@ -293,11 +308,24 @@ where
         .and_then(lookup)
         .unwrap_or_else(|| spec.default_base.to_string());
     let default_model = lookup(spec.model_env).unwrap_or_else(|| spec.default_model.to_string());
+    // `<PROVIDER>_EMBEDDING_MODEL`, else the provider's embedding model: a chat
+    // model is not accepted by an embeddings endpoint.
+    let embedding_model =
+        lookup(&spec.model_env.replace("_MODEL", "_EMBEDDING_MODEL")).or_else(|| {
+            match provider {
+                "openai" => Some("text-embedding-3-small"),
+                "gemini" => Some("gemini-embedding-001"),
+                "mistral" => Some("mistral-embed"),
+                _ => None,
+            }
+            .map(str::to_string)
+        });
     Ok(HttpProviderConfig {
         provider,
         base_url: base_url.trim_end_matches('/').to_string(),
         api_key,
         default_model,
+        embedding_model,
         style: spec.style,
         auth: spec.auth,
         api_version: None,
@@ -328,6 +356,7 @@ where
         ),
         api_key: Some(api_key),
         default_model: deployment,
+        embedding_model: None,
         style: ProviderStyle::OpenAi,
         auth: AuthStyle::Header("api-key"),
         api_version: Some(
@@ -371,6 +400,7 @@ where
         api_key: Some(api_key),
         default_model: lookup("BEDROCK_MODEL")
             .unwrap_or_else(|| "openai.gpt-oss-120b-1:0".to_string()),
+        embedding_model: lookup("BEDROCK_EMBEDDING_MODEL"),
         style: ProviderStyle::OpenAi,
         auth: AuthStyle::Bearer,
         api_version: None,

@@ -346,6 +346,40 @@ fn gemini_and_bedrock_report_missing_configuration() {
     assert!(missing("bedrock", &[("AWS_BEARER_TOKEN_BEDROCK", "secret")]).contains("AWS_REGION"));
 }
 
+/// Embeddings use the provider's embedding model, not its chat model.
+#[test]
+fn embeddings_use_a_dedicated_embedding_model() {
+    let key = |_: &str| Some("secret".to_string());
+    let openai = HttpProviderConfig::from_env_with("openai", |name| match name {
+        "OPENAI_API_KEY" => key(name),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(openai.embedding_model(), "text-embedding-3-small");
+    assert_ne!(openai.embedding_model(), openai.default_model);
+
+    // The env override wins over the built-in default.
+    let overridden = HttpProviderConfig::from_env_with("openai", |name| match name {
+        "OPENAI_API_KEY" => key(name),
+        "OPENAI_EMBEDDING_MODEL" => Some("text-embedding-3-large".to_string()),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(overridden.embedding_model(), "text-embedding-3-large");
+
+    // A provider with no known embedding model keeps using its default model.
+    let groq = HttpProviderConfig::from_env_with("groq", |name| match name {
+        "GROQ_API_KEY" => key(name),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(groq.embedding_model(), groq.default_model);
+    assert_eq!(
+        groq.with_embedding_model("custom-embed").embedding_model(),
+        "custom-embed"
+    );
+}
+
 /// Factory surfaces the typed error for real providers without credentials.
 #[test]
 fn factory_requires_credentials_for_remote_providers() {

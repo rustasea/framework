@@ -152,7 +152,7 @@ impl AiProvider for OpenAiProvider {
 
     async fn embeddings(&self, inputs: &[String]) -> Result<EmbeddingResponse> {
         let body = json!({
-            "model": self.config.default_model,
+            "model": self.config.embedding_model(),
             "input": inputs,
         });
         let request = with_api_version(
