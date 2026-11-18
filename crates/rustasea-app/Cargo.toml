@@ -62,7 +62,8 @@ tower-http = { workspace = true, features = ["fs"] }
 tower-sessions = { workspace = true }
 # `rustasea-mail` supplies the `Mailable`/`Mailer` contracts the email
 # verification flow (AUTH-014) renders and delivers through. The `rustasea`
-# facade does not re-export it, so it is a direct dependency. The `templates`
+# facade re-exports it as `rustasea::mail`; the app keeps this direct dependency
+# for its existing `rustasea_mail::` paths. The `templates`
 # feature (AUTH-018) adds the `rustasea-view`-backed rendering hook so auth
 # emails render branded HTML from `resources/views/mail/`.
 rustasea-mail = { path = "../rustasea-mail", features = ["templates"] }
