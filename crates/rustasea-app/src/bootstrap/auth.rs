@@ -25,9 +25,16 @@
 //! [`DenyAllProvider`], which resolves no credentials and refuses every write.
 //! The guard and provider are installed together by [`install_session_guard`].
 //!
+//! After boot, `main` calls [`install_database_user_provider`]: when the default
+//! guard's provider is ORM-backed and the `users` table is reachable, the
+//! fail-closed provider is replaced by the database-backed
+//! [`DatabaseUserProvider`], so registration and login persist. With no table
+//! (or no database) nothing changes.
+//!
 //! [`SessionGuard`]: rustasea::auth::SessionGuard
 //! [`UserProvider`]: rustasea::auth::UserProvider
 //! [`DenyAllProvider`]: rustasea::auth::DenyAllProvider
+//! [`DatabaseUserProvider`]: rustasea::auth::DatabaseUserProvider
 //! [`Container`]: rustasea::foundation::Container
 //! [`StaticLookup`]: rustasea::auth::users::StaticLookup
 
@@ -35,7 +42,10 @@ use std::sync::Arc;
 
 use rustasea::auth::users::AuthUserRecord;
 use rustasea::auth::verify::{Argon2Verifier, PasswordVerifier};
-use rustasea::auth::{DenyAllProvider, MemoryUserProvider, SessionGuard, UserProvider};
+use rustasea::auth::{
+    AuthConfig, DatabaseUserProvider, DenyAllProvider, MemoryUserProvider, SessionGuard,
+    UserProvider,
+};
 use rustasea::config::ConfigLoader;
 use rustasea::foundation::{Container, CONFIG_LOADER_KEY};
 
@@ -250,6 +260,90 @@ pub fn build_user_provider() -> Arc<dyn UserProvider> {
     Arc::new(provider)
 }
 
+/// Whether the default guard reads its users through the ORM.
+///
+/// True when the default guard's provider (`[auth.providers.<name>]`) uses the
+/// `eloquent` driver — the name `config/auth.toml` keeps for ORM-backed
+/// providers — or its plain alias `database`. A missing or malformed `[auth]`
+/// table is `false`: nothing is inferred from a broken config.
+pub fn uses_database_provider(loader: &ConfigLoader) -> bool {
+    AuthConfig::from_loader(loader)
+        .ok()
+        .and_then(|config| {
+            config
+                .provider_for(config.default_guard())
+                .ok()
+                .map(|provider| provider.driver.to_ascii_lowercase())
+        })
+        .is_some_and(|driver| driver == "eloquent" || driver == "database")
+}
+
+/// Build the database-backed [`UserProvider`] over the `users` table at `url`.
+///
+/// Returns `None` — so the caller keeps the fail-closed provider — when the
+/// database is unreachable or has no `users` table (the migrations have not
+/// run). The probe looks up an empty email: it matches no user, and succeeds
+/// only when the table can be queried.
+pub async fn database_user_provider(url: &str) -> Option<Arc<dyn UserProvider>> {
+    let pool = match rustasea::orm::DbPool::connect(url).await {
+        Ok(pool) => pool,
+        Err(error) => {
+            eprintln!("auth: database unreachable, user provider stays fail-closed: {error}");
+            return None;
+        }
+    };
+    let provider = DatabaseUserProvider::new(pool);
+    match provider.find_by_email("").await {
+        Ok(_) => Some(Arc::new(provider)),
+        Err(_) => {
+            eprintln!(
+                "auth: no usable `users` table (run the migrations); \
+                 user provider stays fail-closed"
+            );
+            None
+        }
+    }
+}
+
+/// Install the database-backed user provider when the app is configured for it.
+///
+/// Called once from `main` after boot. The provider replaces the fail-closed
+/// default only when all of these hold: no dev seed user is set (an explicit
+/// `RUSTASEA_DEV_SEED_USER` wins), the default guard's provider is ORM-backed
+/// ([`uses_database_provider`]), a database URL resolves, and the `users` table
+/// is reachable ([`database_user_provider`]). Otherwise nothing changes and auth
+/// stays fail-closed.
+///
+/// # Returns
+///
+/// `true` when the database provider was installed.
+pub async fn install_database_user_provider(app: &rustasea::Application) -> bool {
+    if std::env::var(DEV_SEED_USER_ENV).is_ok() {
+        return false;
+    }
+    let Some(loader) = app.config() else {
+        return false;
+    };
+    if !uses_database_provider(loader) {
+        return false;
+    }
+    let url = match super::app::resolve_database_url(loader) {
+        Ok(url) => url,
+        Err(error) => {
+            eprintln!("auth: {error}; user provider stays fail-closed");
+            return false;
+        }
+    };
+    match database_user_provider(&url).await {
+        Some(provider) => {
+            crate::routes::install_user_provider(provider);
+            println!("auth: users resolved from the database `users` table");
+            true
+        }
+        None => false,
+    }
+}
+
 /// Build the provider and install it into `container` under [`USER_PROVIDER_KEY`].
 ///
 /// Mirrors [`install_session_guard`]: it stores the built value as a container
@@ -286,4 +380,77 @@ pub fn user_provider(container: &Container) -> Option<Arc<dyn UserProvider>> {
     container
         .get::<Arc<dyn UserProvider>>(USER_PROVIDER_KEY)
         .cloned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustasea::auth::NewUserRecord;
+
+    /// A unique scratch path under the system temp directory.
+    fn scratch(name: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("rustasea-app-{name}-{}", uuid::Uuid::new_v4()))
+    }
+
+    /// Load an `[auth]` table whose default guard uses `driver`.
+    fn loader_with_provider_driver(driver: &str) -> ConfigLoader {
+        let base = scratch("auth");
+        let toml = format!(
+            "[auth.defaults]\nguard = \"web\"\n\
+             [auth.guards.web]\ndriver = \"session\"\nprovider = \"users\"\n\
+             [auth.providers.users]\ndriver = \"{driver}\"\n"
+        );
+        let file = base.with_extension("toml");
+        std::fs::write(&file, toml).expect("write auth.toml");
+        let loader = ConfigLoader::load_from(&[&base.to_string_lossy()]).expect("load");
+        let _ = std::fs::remove_file(file);
+        loader
+    }
+
+    #[test]
+    fn only_orm_backed_drivers_select_the_database_provider() {
+        assert!(uses_database_provider(&loader_with_provider_driver(
+            "eloquent"
+        )));
+        assert!(uses_database_provider(&loader_with_provider_driver(
+            "Database"
+        )));
+        assert!(!uses_database_provider(&loader_with_provider_driver(
+            "memory"
+        )));
+    }
+
+    #[tokio::test]
+    async fn database_provider_is_built_only_when_the_users_table_exists() {
+        let path = scratch("users").with_extension("sqlite");
+        let url = format!("sqlite://{}?mode=rwc", path.display());
+
+        // No `users` table yet: stay fail-closed.
+        assert!(database_user_provider(&url).await.is_none());
+
+        let pool = rustasea::orm::DbPool::connect(&url).await.expect("pool");
+        pool.execute_script(
+            "CREATE TABLE users (id UUID PRIMARY KEY, name VARCHAR(255) NOT NULL, \
+             email VARCHAR(255) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL, \
+             email_verified_at TIMESTAMPTZ NULL, timezone VARCHAR(64) NULL, \
+             created_at TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ NOT NULL, \
+             deleted_at TIMESTAMPTZ NULL);",
+        )
+        .await
+        .expect("schema");
+
+        let provider = database_user_provider(&url).await.expect("provider");
+        let created = provider
+            .create(NewUserRecord::new("Ada", "ada@example.com", "phc-hash"))
+            .await
+            .expect("create");
+        let found = provider
+            .find_by_email("ada@example.com")
+            .await
+            .expect("find");
+        assert_eq!(found.map(|user| user.id), Some(created.id));
+
+        pool.close().await;
+        let _ = std::fs::remove_file(path);
+    }
 }

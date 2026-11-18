@@ -27,6 +27,10 @@ async fn main() -> anyhow::Result<()> {
     // `bootstrap/app.rs` — the README-mandated `Application::configure` home.
     let app = bootstrap::app::configure()?;
 
+    // Read users from the database when auth is configured for it and the
+    // `users` table exists; otherwise the fail-closed provider stays in place.
+    bootstrap::auth::install_database_user_provider(&app).await;
+
     // Build the real route table from the concern-scoped tables
     // (`routes::{web,auth,settings,console}`) and print what is actually
     // served — the print reflects the compiled table, not a placeholder.
