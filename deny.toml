@@ -15,7 +15,7 @@ version = 2
 db-urls = ["https://github.com/rustsec/advisory-db"]
 # A yanked crate in the lockfile is never acceptable.
 yanked = "deny"
-# Unmaintained-crate scope (cargo-deny 0.20): "workspace" fails only for
+# Unmaintained-crate scope (cargo-deny 0.21): "workspace" fails only for
 # unmaintained crates that are direct dependencies of a workspace crate.
 # Transitive unmaintained crates (for example `number_prefix` via `indicatif`
 # and `proc-macro-error2` via `validator_derive`) carry no known vulnerability,
@@ -34,13 +34,21 @@ ignore = [
     # covers. Drop this entry when `sqlx` moves to 0.9 (see RUSTSEC-2026-0459).
     { id = "RUSTSEC-2023-0071", reason = "`rsa` 0.9 remains only via sqlx-mysql 0.8 (public-key password encryption, not the affected private-key path) and a test-only dev-dependency; fixed by sqlx 0.9" },
     # RUSTSEC-2026-0459 — CVE-2026-119375 in the SQLite source bundled by
-    # `libsqlite3-sys` before 0.39. `sqlx-sqlite` 0.8 pins `libsqlite3-sys`
-    # 0.30, and the first `sqlx` line on a patched binding (0.9) declares
-    # `rust-version = 1.94`, above the workspace MSRV of 1.88 (ADR-0001). Per the
-    # advisory, only a process that opens a database file, together with its
-    # `-wal`, written by a less trusted party is exposed. Drop this entry when
-    # the MSRV allows `sqlx` 0.9.
-    { id = "RUSTSEC-2026-0459", reason = "no patched `libsqlite3-sys` is reachable under MSRV 1.88: sqlx 0.8 pins 0.30 and sqlx 0.9 needs rustc 1.94; exposure requires opening an untrusted database file with its -wal" },
+    # `libsqlite3-sys` before 0.39. The bundled copy is not optional: the
+    # `sqlite` feature is on by default for `rustasea-activitylog` and
+    # `rustasea-authlog` (and in `rustasea-search`'s test build), forwarding
+    # rustasea-orm/sqlite -> sqlx/sqlite -> sqlx-sqlite, which compiles
+    # `libsqlite3-sys` with `bundled`, so the vulnerable code ships in the
+    # default workspace build. `sqlx` 0.8 pins `libsqlite3-sys` 0.30, and the
+    # first `sqlx` line on a patched binding (0.9) declares
+    # `rust-version = 1.94`, above the workspace MSRV of 1.88 (ADR-0001).
+    # sqlx's `sqlite-unbundled` feature (0.8.6), which per the advisory leaves a
+    # system-SQLite build unaffected, was considered and rejected: it needs a
+    # system libsqlite3 plus bindgen/libclang, is non-hermetic, and complicates
+    # cross-compilation. Per the advisory, only a process that opens a database
+    # file (with its `-wal`) written by a less trusted party is exposed. Drop
+    # this entry when the MSRV allows `sqlx` 0.9.
+    { id = "RUSTSEC-2026-0459", reason = "bundled SQLite is compiled by default (rustasea-activitylog/authlog default `sqlite`) and no patched `libsqlite3-sys` is reachable under MSRV 1.88: sqlx 0.8 pins 0.30 and sqlx 0.9 needs rustc 1.94; `sqlite-unbundled` rejected as non-hermetic (system libsqlite3 + bindgen); exposure needs an untrusted database file with its -wal" },
     # RUSTSEC-2026-0543 / RUSTSEC-2026-0555 — `chrono` and `chrono-tz` are
     # flagged unmaintained (no vulnerability). Both are direct dependencies used
     # across the workspace, and `sqlx`'s `chrono` feature carries timestamps
