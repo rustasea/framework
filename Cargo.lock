@@ -6839,6 +6839,7 @@ dependencies = [
  "rustasea-livewire",
  "rustasea-logging",
  "rustasea-macros",
+ "rustasea-mail",
  "rustasea-modules",
  "rustasea-mongo",
  "rustasea-openapi",

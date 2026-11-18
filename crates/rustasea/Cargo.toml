@@ -48,6 +48,10 @@ rustasea-storage = { path = "../rustasea-storage" }
 rustasea-search = { path = "../rustasea-search" }
 rustasea-jsonapi = { path = "../rustasea-jsonapi" }
 rustasea-ai = { path = "../rustasea-ai", optional = true }
+# Mail (M6): Mailable/Mailer contracts and queued notifications. Always linked
+# because `rustasea-authlog` already depends on it; the SMTP transport and the
+# template hook stay opt-in behind `mail-smtp` / `mail-templates`.
+rustasea-mail = { path = "../rustasea-mail" }
 # MongoDB document store (ADR-0010); opt-in so the core build never links the
 # `mongodb`/`bson` driver tree (pay-for-what-you-use, NFR-Sca-02).
 rustasea-mongo = { path = "../rustasea-mongo", optional = true }
@@ -134,6 +138,12 @@ scaffold = ["dep:rustasea-scaffold", "dep:clap"]
 # M6 AI SDK is additive; `ai-search`/`ai-storage`/`ai-mcp` forward the
 # deferred-loader features of rustasea-ai itself.
 ai = ["dep:rustasea-ai"]
+# Mail SMTP transport (`lettre`, TLS via rustls). Forwards to `rustasea-mail`'s
+# `smtp` feature; off by default (pay-for-what-you-use, NFR-Sca-02).
+mail-smtp = ["rustasea-mail/smtp"]
+# Mail template rendering hook (AUTH-018). Forwards to `rustasea-mail`'s
+# `templates` feature, which renders mailables through the runtime view engine.
+mail-templates = ["view-runtime-templates", "rustasea-mail/templates"]
 ai-search = ["dep:rustasea-ai", "rustasea-ai/search"]
 ai-storage = ["dep:rustasea-ai", "rustasea-ai/storage"]
 # `ai-mcp` also enables the CLI's `mcp:serve` command (ADOPT-015) so an

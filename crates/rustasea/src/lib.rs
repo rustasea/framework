@@ -150,6 +150,11 @@ pub use rustasea_jsonapi as jsonapi;
 pub use rustasea_search as search;
 pub use rustasea_storage as storage;
 
+/// M6 mail re-export: `Mailable`/`Mailer` contracts, the `Mail` facade, and
+/// queued notifications. The SMTP transport and the template hook need the
+/// `mail-smtp` / `mail-templates` features.
+pub use rustasea_mail as mail;
+
 /// M6 AI SDK re-export — only with the `ai` feature (NFR-Sca-02).
 #[cfg(feature = "ai")]
 pub use rustasea_ai as ai;
