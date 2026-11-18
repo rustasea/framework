@@ -9,7 +9,9 @@ use std::sync::RwLock;
 
 pub mod provider;
 
-pub use provider::{DenyAllProvider, MemoryUserProvider, NewUserRecord, UserProvider};
+pub use provider::{
+    DatabaseUserProvider, DenyAllProvider, MemoryUserProvider, NewUserRecord, UserProvider,
+};
 
 /// Minimal user record the auth layer needs.
 #[derive(Debug, Clone, PartialEq, Eq)]

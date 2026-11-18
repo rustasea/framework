@@ -79,7 +79,9 @@ pub use two_factor::{
     MemoryTwoFactorStore, SecretCipher, TwoFactorEnrollment, TwoFactorRecord, TwoFactorService,
     TwoFactorStore, DEFAULT_WINDOW, DIGITS, RECOVERY_CODE_COUNT, SECRET_BYTES, STEP_SECS,
 };
-pub use users::provider::{DenyAllProvider, MemoryUserProvider, NewUserRecord, UserProvider};
+pub use users::provider::{
+    DatabaseUserProvider, DenyAllProvider, MemoryUserProvider, NewUserRecord, UserProvider,
+};
 pub use verification::{EmailVerification, MemoryEmailVerification};
 
 /// Alias kept for documentation parity (`Auth::guard(...)`).
