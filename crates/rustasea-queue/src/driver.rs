@@ -183,8 +183,8 @@ pub(crate) fn record_failed(job: FailedJob) {
 
 /// Dead-letter a failure from an inline (`sync`) dispatch.
 ///
-/// When a `database` connection is registered the entry is persisted to its
-/// `failed_jobs` table, so it survives the process and is listed by
+/// When the configured default connection is registered the entry is persisted
+/// to its `failed_jobs` table, so it survives the process and is listed by
 /// `queue:failed`. The stored payload is the full [`JobPayload`] envelope
 /// addressed to that connection, so `queue:retry` re-enqueues a job a worker
 /// can resolve. Without a database driver, or when the insert fails, the entry
@@ -195,7 +195,11 @@ pub(crate) async fn dead_letter_sync(
     body: serde_json::Value,
     exception: String,
 ) {
-    if let Ok(database) = crate::registry::driver(DATABASE_CONNECTION) {
+    // Resolve the configured default connection rather than assuming the
+    // persistence connection is literally named `database`; fall back to the
+    // historical default when the queue config never recorded one.
+    let connection = crate::wiring::configured_default_connection().unwrap_or(DATABASE_CONNECTION);
+    if let Ok(database) = crate::registry::driver(connection) {
         let queue = queue
             .map(str::to_string)
             .or_else(|| {
@@ -206,7 +210,7 @@ pub(crate) async fn dead_letter_sync(
             .unwrap_or_else(|| crate::config::DEFAULT_QUEUE.to_string());
         let envelope = JobPayload::new(
             queue.clone(),
-            DATABASE_CONNECTION,
+            connection,
             Some(type_key.to_string()),
             body.clone(),
         );
