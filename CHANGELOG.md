@@ -151,6 +151,12 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Changed
 
+- 2026-11-18 - **Breaking:** `HttpProviderConfig` gains the public field
+  `embedding_model`, so downstream struct literals that construct it directly
+  must set the field. It is populated from `<PROVIDER>_EMBEDDING_MODEL` (else
+  the provider's known embedding model) and, when neither is present, embeddings
+  requests fall back to the configured chat model (M6; `fix(ai): send an
+  embedding model, not the chat model, on embeddings requests`).
 - 2026-11-18 - Documentation brought in line with the code: `docs/laravel-parity.md`
   rows for events, batches, unique jobs, sessions, the user provider, mail,
   notifications, the gate, the password-reset store, the scheduler, and the AI

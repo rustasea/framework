@@ -309,16 +309,22 @@ where
         .unwrap_or_else(|| spec.default_base.to_string());
     let default_model = lookup(spec.model_env).unwrap_or_else(|| spec.default_model.to_string());
     // `<PROVIDER>_EMBEDDING_MODEL`, else the provider's embedding model: a chat
-    // model is not accepted by an embeddings endpoint.
+    // model is not accepted by an embeddings endpoint. The OpenAI built-in is
+    // scoped to OpenAI's own endpoint — a self-hosted OpenAI-compatible server
+    // (a custom `OPENAI_BASE_URL`) may expose a different embedding model, so
+    // it keeps the configured default model unless `OPENAI_EMBEDDING_MODEL` is
+    // set.
     let embedding_model =
         lookup(&spec.model_env.replace("_MODEL", "_EMBEDDING_MODEL")).or_else(|| {
-            match provider {
-                "openai" => Some("text-embedding-3-small"),
+            let builtin = match provider {
+                "openai" if base_url.trim_end_matches('/') == spec.default_base => {
+                    Some("text-embedding-3-small")
+                }
                 "gemini" => Some("gemini-embedding-001"),
                 "mistral" => Some("mistral-embed"),
                 _ => None,
-            }
-            .map(str::to_string)
+            };
+            builtin.map(str::to_string)
         });
     Ok(HttpProviderConfig {
         provider,
