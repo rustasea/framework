@@ -133,12 +133,10 @@ impl JwtGuard {
 
     /// Sign `claims` into a compact JWT string.
     fn sign(&self, claims: &JwtClaims) -> Result<String> {
-        encode(
-            &Header::new(Algorithm::HS256),
-            claims,
-            &EncodingKey::from_secret(self.cfg.secret.as_bytes()),
-        )
-        .map_err(|e| AuthError::Token(e.to_string()))
+        let key = EncodingKey::from_secret(self.cfg.secret.as_bytes())
+            .map_err(|e| AuthError::Token(e.to_string()))?;
+        encode(&Header::new(Algorithm::HS256), claims, &key)
+            .map_err(|e| AuthError::Token(e.to_string()))
     }
 
     /// Decode and fully validate a token (signature, exp, iss, aud).
@@ -147,16 +145,15 @@ impl JwtGuard {
         validation.set_issuer(&[&self.cfg.issuer]);
         validation.set_audience(&[&self.cfg.audience]);
         validation.leeway = 0;
-        decode::<JwtClaims>(
-            token,
-            &DecodingKey::from_secret(self.cfg.secret.as_bytes()),
-            &validation,
-        )
-        .map(|d| d.claims)
-        .map_err(|e| match e.kind() {
-            jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::ExpiredToken,
-            _ => AuthError::InvalidToken,
-        })
+        // A secret the HMAC key constructor rejects can verify no token.
+        let key = DecodingKey::from_secret(self.cfg.secret.as_bytes())
+            .map_err(|_| AuthError::InvalidToken)?;
+        decode::<JwtClaims>(token, &key, &validation)
+            .map(|d| d.claims)
+            .map_err(|e| match e.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::ExpiredToken,
+                _ => AuthError::InvalidToken,
+            })
     }
 
     /// Pair of signed claims for `user_id`.

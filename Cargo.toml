@@ -39,7 +39,7 @@ uuid = { version = "1", features = ["v4", "v7", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "1"
 # Security (M3)
-jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
+jsonwebtoken = { version = "12", default-features = false, features = ["rust_crypto"] }
 argon2 = { version = "0.5", default-features = false, features = ["alloc", "password-hash", "rand", "simple", "std"] }
 tower-sessions = { version = "0.15", default-features = false, features = ["memory-store"] }
 # Validation (M3)
@@ -64,7 +64,7 @@ chacha20poly1305 = "0.10"
 # assertions; `ciborium` parses the CBOR attestation object / COSE public key;
 # `base64` decodes the base64url ceremony fields. All three are already in the
 # lock (`p256` via `jsonwebtoken`), so this adds no new upstream source.
-p256 = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "std"] }
 ciborium = "0.2"
 base64 = "0.22"
 # Macros (M0)
