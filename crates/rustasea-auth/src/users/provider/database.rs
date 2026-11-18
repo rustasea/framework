@@ -107,7 +107,9 @@ impl DatabaseUserProvider {
     ///
     /// `assignments` uses placeholders `$1..$n` for `bindings`; the timestamp and
     /// id are appended as the next two placeholders. Fails with
-    /// [`AuthError::UserNotFound`] when no live row matched.
+    /// [`AuthError::UserNotFound`] when no live row matched. An update that runs
+    /// but changes no values (same password/timezone, `updated_at` truncated to
+    /// the same instant) is not an error.
     async fn update_user(
         &self,
         user_id: &str,
@@ -133,7 +135,15 @@ impl DatabaseUserProvider {
             .await
             .map_err(store)?;
         if affected == 0 {
-            return Err(not_found());
+            // `execute_bind` reports MySQL's *changed* rows, not matched rows,
+            // so an update that leaves the row byte-identical (same
+            // password/timezone and an `updated_at` at the same precision)
+            // reports zero even though the row matched. Probe for the live row
+            // to tell that no-op from a genuinely missing (or soft-deleted) one.
+            return match self.find_where("id", Value::Uuid(id)).await? {
+                Some(_) => Ok(()),
+                None => Err(not_found()),
+            };
         }
         Ok(())
     }
@@ -255,15 +265,33 @@ impl UserProvider for DatabaseUserProvider {
                     email: email.to_string(),
                 });
             }
-            self.update_user(
-                user_id,
-                "name = $1, email = $2",
-                vec![
-                    Value::Text(name.to_string()),
-                    Value::Text(email.to_string()),
-                ],
-            )
-            .await
+            match self
+                .update_user(
+                    user_id,
+                    "name = $1, email = $2",
+                    vec![
+                        Value::Text(name.to_string()),
+                        Value::Text(email.to_string()),
+                    ],
+                )
+                .await
+            {
+                Ok(()) => Ok(()),
+                // A concurrent update can win the unique-email race between the
+                // check above and this write; re-check so the typed collision
+                // wins over a generic store failure.
+                Err(error) => {
+                    if matches!(error, AuthError::UserNotFound { .. }) {
+                        return Err(error);
+                    }
+                    match self.email_taken(email, Some(id)).await {
+                        Ok(true) => Err(AuthError::UserExists {
+                            email: email.to_string(),
+                        }),
+                        _ => Err(AuthError::StoreUnavailable),
+                    }
+                }
+            }
         })
     }
 
