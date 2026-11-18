@@ -6,11 +6,13 @@
 [advisories]
 # Documented, reviewed exceptions only.
 ignore = [
-    # RUSTSEC-2023-0071 — "Marvin Attack" timing sidechannel in `rsa`.
-    # No patched release exists (upstream RustCrypto/RSA#626 still open as of
-    # 2026-09; `patched = []` is intentional). `rsa` is an unconditional
-    # transitive dependency of `jsonwebtoken`'s `rust_crypto` feature and cannot
-    # be disabled; the vulnerable RSA code path is never reached because
-    # rustasea-auth uses HS256 (HMAC-SHA256) exclusively. Accepted risk.
+    # RUSTSEC-2023-0071 — "Marvin Attack" timing sidechannel in `rsa`
+    # private-key operations, patched in `rsa` 0.10. The affected 0.9 line
+    # remains only through `sqlx-mysql` 0.8 (public-key password encryption) and
+    # a test-only dev-dependency of `rustasea-google`. See deny.toml.
     "RUSTSEC-2023-0071",
+    # RUSTSEC-2026-0459 — CVE-2026-119375 in the SQLite bundled by
+    # `libsqlite3-sys` before 0.39. `sqlx` 0.8 pins 0.30 and `sqlx` 0.9 needs
+    # rustc 1.94, above the workspace MSRV of 1.88. See deny.toml.
+    "RUSTSEC-2026-0459",
 ]

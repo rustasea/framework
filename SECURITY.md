@@ -99,9 +99,13 @@ RustaSea gates its dependency graph on every CI run:
   in `deny.toml`.
 - `cargo audit` runs the RustSec advisory scan as a required CI job.
   Unpatchable advisories are allow-listed with a documented reason in
-  `deny.toml` and mirrored in `.cargo/audit.toml` (the current exception is
-  `RUSTSEC-2023-0071`, whose vulnerable `rsa` code path is never reached because
-  RustaSea uses HS256/HMAC exclusively).
+  `deny.toml`. The vulnerability exceptions `RUSTSEC-2023-0071` (`rsa` 0.9,
+  which remains only through `sqlx-mysql` and a test dependency) and
+  `RUSTSEC-2026-0459` (the SQLite bundled by `libsqlite3-sys`, which `sqlx` 0.8
+  pins below the patched release) are mirrored in `.cargo/audit.toml`. The
+  unmaintained notices for `chrono` and `chrono-tz` (`RUSTSEC-2026-0543`,
+  `RUSTSEC-2026-0555`) are tracked in `deny.toml` only: `cargo-audit` does not
+  flag unmaintained crates.
 
 Both checks run in `.github/workflows/ci.yml` and can be reproduced locally:
 

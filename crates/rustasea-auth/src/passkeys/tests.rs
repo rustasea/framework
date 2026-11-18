@@ -5,7 +5,6 @@
 //! exercised end to end rather than mocked.
 
 use super::*;
-use argon2::password_hash::rand_core::OsRng;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ciborium::value::Value as CborValue;
@@ -18,6 +17,11 @@ const RP_ID: &str = "localhost";
 const ORIGIN: &str = "http://localhost";
 /// Credential id used by the ceremony fixtures.
 const CRED_ID: &str = "cred-1";
+
+/// A fixed P-256 signing key: the ceremonies need a valid key, not a random one.
+fn signing_key() -> SigningKey {
+    SigningKey::from_slice(&[7u8; 32]).expect("valid P-256 scalar")
+}
 
 /// Resolved relying-party settings for the fixtures.
 fn resolved() -> ResolvedPasskeys {
@@ -77,7 +81,7 @@ fn registration_response(
     counter: u32,
 ) -> RegistrationResponse {
     let sec1 = VerifyingKey::from(signing)
-        .to_encoded_point(false)
+        .to_sec1_point(false)
         .as_bytes()
         .to_vec();
     let client_data =
@@ -157,7 +161,7 @@ async fn register(service: &PasskeyService, signing: &SigningKey) -> PasskeyCred
 #[tokio::test]
 async fn registration_then_assertion_round_trip() {
     let (service, store, _challenges) = service();
-    let signing = SigningKey::random(&mut OsRng);
+    let signing = signing_key();
     let credential = register(&service, &signing).await;
     assert_eq!(store.list("user-1").await.expect("list").len(), 1);
 
@@ -182,7 +186,7 @@ async fn registration_then_assertion_round_trip() {
 #[tokio::test]
 async fn challenge_is_single_use() {
     let (service, _store, _challenges) = service();
-    let signing = SigningKey::random(&mut OsRng);
+    let signing = signing_key();
     let options = service
         .begin_registration("user-1", "ada@example.com", "Ada", "register")
         .await
@@ -202,7 +206,7 @@ async fn challenge_is_single_use() {
 #[tokio::test]
 async fn counter_regression_is_rejected() {
     let (service, _store, _challenges) = service();
-    let signing = SigningKey::random(&mut OsRng);
+    let signing = signing_key();
     let credential = register(&service, &signing).await;
 
     let options = service
@@ -230,7 +234,7 @@ async fn counter_regression_is_rejected() {
 #[tokio::test]
 async fn unknown_credential_is_rejected() {
     let (service, _store, _challenges) = service();
-    let signing = SigningKey::random(&mut OsRng);
+    let signing = signing_key();
     let _ = register(&service, &signing).await;
     let options = service.begin_authentication("a", &[]).await.expect("begin");
     let response = authentication_response(&signing, &options.challenge, 1, None);
@@ -247,7 +251,7 @@ async fn unknown_credential_is_rejected() {
 #[tokio::test]
 async fn wrong_origin_is_rejected() {
     let (service, _store, _challenges) = service();
-    let signing = SigningKey::random(&mut OsRng);
+    let signing = signing_key();
     let options = service
         .begin_registration("user-1", "ada@example.com", "Ada", "register")
         .await

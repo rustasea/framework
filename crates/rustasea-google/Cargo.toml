@@ -29,8 +29,9 @@ tracing = { workspace = true }
 reqwest = { workspace = true, features = ["rustls-tls"] }
 
 [dev-dependencies]
-# Test-only RSA key generation for the signing/exchange assertions. Both are
-# already in the workspace lock via `jsonwebtoken` (rsa 0.9.10).
+# Test-only RSA key generation for the signing/exchange assertions. `rsa` 0.9
+# is already in the workspace lock via `sqlx-mysql`, and it takes the `rand` 0.8
+# `OsRng` the workspace pins.
 rand = { workspace = true }
 rsa = "0.9"
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }

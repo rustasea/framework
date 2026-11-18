@@ -133,12 +133,10 @@ impl JwtGuard {
 
     /// Sign `claims` into a compact JWT string.
     fn sign(&self, claims: &JwtClaims) -> Result<String> {
-        encode(
-            &Header::new(Algorithm::HS256),
-            claims,
-            &EncodingKey::from_secret(self.cfg.secret.as_bytes()),
-        )
-        .map_err(|e| AuthError::Token(e.to_string()))
+        let key = EncodingKey::from_secret(self.cfg.secret.as_bytes())
+            .map_err(|e| AuthError::Token(e.to_string()))?;
+        encode(&Header::new(Algorithm::HS256), claims, &key)
+            .map_err(|e| AuthError::Token(e.to_string()))
     }
 
     /// Decode and fully validate a token (signature, exp, iss, aud).
@@ -147,16 +145,15 @@ impl JwtGuard {
         validation.set_issuer(&[&self.cfg.issuer]);
         validation.set_audience(&[&self.cfg.audience]);
         validation.leeway = 0;
-        decode::<JwtClaims>(
-            token,
-            &DecodingKey::from_secret(self.cfg.secret.as_bytes()),
-            &validation,
-        )
-        .map(|d| d.claims)
-        .map_err(|e| match e.kind() {
-            jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::ExpiredToken,
-            _ => AuthError::InvalidToken,
-        })
+        // A secret the HMAC key constructor rejects can verify no token.
+        let key = DecodingKey::from_secret(self.cfg.secret.as_bytes())
+            .map_err(|_| AuthError::InvalidToken)?;
+        decode::<JwtClaims>(token, &key, &validation)
+            .map(|d| d.claims)
+            .map_err(|e| match e.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::ExpiredToken,
+                _ => AuthError::InvalidToken,
+            })
     }
 
     /// Pair of signed claims for `user_id`.
@@ -403,6 +400,27 @@ mod tests {
         );
         assert_eq!(guard.parse("a.b.c").await, expected_user);
         assert_eq!(guard.refresh("a.b.c").await, expected_token);
+    }
+
+    /// An empty HMAC secret is rejected by the key constructors before any
+    /// encode/decode runs, pinning the jsonwebtoken-12 `Result` mapping: signing
+    /// surfaces `Token`, decoding surfaces `InvalidToken`.
+    #[test]
+    fn empty_secret_maps_to_token_errors() {
+        let guard = JwtGuard::new(
+            JwtConfig {
+                secret: String::new(),
+                ..JwtConfig::default()
+            },
+            Arc::new(AlwaysVerify),
+        );
+        let claims = JwtClaims::issue(&Uuid::new_v4(), "access", 60, &guard.cfg);
+        let err = guard.sign(&claims).expect_err("empty secret must not sign");
+        assert!(matches!(err, AuthError::Token(_)));
+        let err = guard
+            .decode_claims("a.b.c")
+            .expect_err("empty secret must not decode");
+        assert_eq!(err, AuthError::InvalidToken);
     }
 
     /// A refresh token rotates into a new pair; access token in refresh fails.
