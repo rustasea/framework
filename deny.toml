@@ -16,24 +16,38 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 # A yanked crate in the lockfile is never acceptable.
 yanked = "deny"
 # Unmaintained-crate scope (cargo-deny 0.20): "workspace" fails only for
-# unmaintained crates that are direct dependencies of a workspace crate. The
-# two unmaintained crates in the tree (`number_prefix` via `indicatif`,
-# `proc-macro-error2` via `validator_derive`) are transitive and carry no
-# known vulnerability, so they surface without failing the gate. Actual
-# vulnerabilities always fail regardless of this setting.
+# unmaintained crates that are direct dependencies of a workspace crate.
+# Transitive unmaintained crates (for example `number_prefix` via `indicatif`
+# and `proc-macro-error2` via `validator_derive`) carry no known vulnerability,
+# so they surface without failing the gate. Actual vulnerabilities always fail
+# regardless of this setting.
 unmaintained = "workspace"
 # Documented exceptions. Only genuine, reviewed exceptions belong here, each
 # with an inline reason (see below).
 ignore = [
-    # RUSTSEC-2023-0071 — "Marvin Attack" timing sidechannel in the `rsa`
-    # crate. There is NO patched release (upstream RustCrypto/RSA#626 is still
-    # open as of 2026-09; `patched = []` is intentional). `rsa` is pulled
-    # unconditionally by `jsonwebtoken`'s `rust_crypto` feature (used for its
-    # HMAC/Ed25519/P-256 support), and no feature toggle removes it. The
-    # vulnerable code path is never reached: rustasea-auth signs and verifies
-    # JWTs exclusively with HS256 (HMAC-SHA256) — no RSA algorithm is used
-    # anywhere in the workspace. Accepted risk until upstream ships a fix.
-    { id = "RUSTSEC-2023-0071", reason = "no patched `rsa` release exists; `rsa` is an unavoidable transitive dep of jsonwebtoken's rust_crypto feature and its RSA code path is never used (HS256/HMAC only)" },
+    # RUSTSEC-2023-0071 — "Marvin Attack" timing sidechannel in `rsa` private-key
+    # operations, patched in `rsa` 0.10. `jsonwebtoken` 12 and `russh` already
+    # resolve to 0.10; the affected 0.9 line remains only through `sqlx-mysql`
+    # 0.8 (the opt-in `mysql` feature) and as a test-only dev-dependency of
+    # `rustasea-google`. `sqlx-mysql` uses it to encrypt the password with the
+    # server's public key, which is not the private-key operation the advisory
+    # covers. Drop this entry when `sqlx` moves to 0.9 (see RUSTSEC-2026-0459).
+    { id = "RUSTSEC-2023-0071", reason = "`rsa` 0.9 remains only via sqlx-mysql 0.8 (public-key password encryption, not the affected private-key path) and a test-only dev-dependency; fixed by sqlx 0.9" },
+    # RUSTSEC-2026-0459 — CVE-2026-119375 in the SQLite source bundled by
+    # `libsqlite3-sys` before 0.39. `sqlx-sqlite` 0.8 pins `libsqlite3-sys`
+    # 0.30, and the first `sqlx` line on a patched binding (0.9) declares
+    # `rust-version = 1.94`, above the workspace MSRV of 1.88 (ADR-0001). Per the
+    # advisory, only a process that opens a database file, together with its
+    # `-wal`, written by a less trusted party is exposed. Drop this entry when
+    # the MSRV allows `sqlx` 0.9.
+    { id = "RUSTSEC-2026-0459", reason = "no patched `libsqlite3-sys` is reachable under MSRV 1.88: sqlx 0.8 pins 0.30 and sqlx 0.9 needs rustc 1.94; exposure requires opening an untrusted database file with its -wal" },
+    # RUSTSEC-2026-0543 / RUSTSEC-2026-0555 — `chrono` and `chrono-tz` are
+    # flagged unmaintained (no vulnerability). Both are direct dependencies used
+    # across the workspace, and `sqlx`'s `chrono` feature carries timestamps
+    # through the ORM, so replacing them is a migration of its own rather than a
+    # dependency bump. Accepted until that migration is scheduled.
+    { id = "RUSTSEC-2026-0543", reason = "`chrono` is unmaintained, not vulnerable; it is used across the workspace and through sqlx's `chrono` feature, so replacing it is a separate migration" },
+    { id = "RUSTSEC-2026-0555", reason = "`chrono-tz` is unmaintained, not vulnerable; it follows the `chrono` migration" },
 ]
 
 [licenses]
