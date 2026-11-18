@@ -22,7 +22,8 @@ use crate::provider::AiProvider;
 /// Returns [`crate::error::AiError::ConfigurationError`] when a required
 /// credential is missing (never a silent stub) and
 /// [`crate::error::AiError::UnknownProvider`] for names without an HTTP
-/// adapter (`gemini`, `bedrock`). Callers wanting deterministic offline
+/// adapter. `gemini` and `bedrock` are served through their OpenAI-compatible
+/// endpoints. Callers wanting deterministic offline
 /// behaviour should construct [`crate::adapters::InProcessProvider`] instead.
 pub fn provider_from_env(name: &str) -> Result<Box<dyn AiProvider>> {
     let config = HttpProviderConfig::from_env(name)?;

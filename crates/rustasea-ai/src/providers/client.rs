@@ -219,7 +219,23 @@ impl HttpProviderConfig {
                 },
                 &lookup,
             ),
+            // Gemini's OpenAI-compatible surface (chat completions, embeddings).
+            "gemini" => resolve_env(
+                "gemini",
+                EnvSpec {
+                    key_env: Some("GEMINI_API_KEY"),
+                    key_required: true,
+                    base_env: Some("GEMINI_BASE_URL"),
+                    default_base: "https://generativelanguage.googleapis.com/v1beta/openai",
+                    model_env: "GEMINI_MODEL",
+                    default_model: "gemini-4-hydrogen",
+                    auth: AuthStyle::Bearer,
+                    style: ProviderStyle::OpenAi,
+                },
+                &lookup,
+            ),
             "azure" => azure_from_env(&lookup),
+            "bedrock" => bedrock_from_env(&lookup),
             other => Err(AiError::UnknownProvider(other.to_string())),
         }
     }
@@ -317,6 +333,47 @@ where
         api_version: Some(
             lookup("AZURE_OPENAI_API_VERSION").unwrap_or_else(|| "2024-10-21".to_string()),
         ),
+        timeout: DEFAULT_TIMEOUT,
+        max_tokens: 1024,
+    })
+}
+
+/// Resolve Amazon Bedrock's OpenAI-compatible endpoint (region-scoped).
+///
+/// Authenticates with a Bedrock API key sent as a bearer token
+/// (`AWS_BEARER_TOKEN_BEDROCK`), so no SigV4 request signing is involved. The
+/// endpoint host is built from `AWS_REGION` (or `AWS_DEFAULT_REGION`) unless
+/// `BEDROCK_BASE_URL` overrides it.
+fn bedrock_from_env<F>(lookup: &F) -> Result<HttpProviderConfig>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let missing = |env: &str| {
+        AiError::configuration(format!("{env} is not set (required for provider bedrock)"))
+    };
+    let api_key =
+        lookup("AWS_BEARER_TOKEN_BEDROCK").ok_or_else(|| missing("AWS_BEARER_TOKEN_BEDROCK"))?;
+    let base_url = match lookup("BEDROCK_BASE_URL") {
+        Some(base) => base,
+        None => {
+            let region = lookup("AWS_REGION")
+                .or_else(|| lookup("AWS_DEFAULT_REGION"))
+                .ok_or_else(|| missing("AWS_REGION"))?;
+            format!(
+                "https://bedrock-runtime.{}.amazonaws.com/openai/v1",
+                region.trim()
+            )
+        }
+    };
+    Ok(HttpProviderConfig {
+        provider: "bedrock",
+        base_url: base_url.trim_end_matches('/').to_string(),
+        api_key: Some(api_key),
+        default_model: lookup("BEDROCK_MODEL")
+            .unwrap_or_else(|| "openai.gpt-oss-120b-1:0".to_string()),
+        style: ProviderStyle::OpenAi,
+        auth: AuthStyle::Bearer,
+        api_version: None,
         timeout: DEFAULT_TIMEOUT,
         max_tokens: 1024,
     })
