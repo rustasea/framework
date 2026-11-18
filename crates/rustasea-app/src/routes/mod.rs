@@ -25,6 +25,8 @@ pub mod errors;
 /// surface.
 pub mod examples;
 mod helpers;
+
+pub(crate) use helpers::install_user_provider;
 /// Dev-only log viewer surface (`/_logs`, `/_logs/json`) — ADOPT-014, compiled
 /// only with the `log-viewer` feature.
 #[cfg(feature = "log-viewer")]

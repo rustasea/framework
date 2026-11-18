@@ -84,9 +84,14 @@ enum JsonApiError { RelationNotLoaded { relation: String } }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M6-JA-01 | Serializer | Todo | `JsonApiResource` sparse + include + links |
-| F-M6-JA-02 | Guard | Todo | `RelationNotLoaded` when not eager |
-| F-M6-JA-03 | Tests | Todo | fieldset+include happy, not-loaded, sparse outline |
+| F-M6-JA-01 | Serializer | Done | `JsonApiResource` sparse + include + links |
+| F-M6-JA-02 | Guard | Done | `RelationNotLoaded` when not eager |
+| F-M6-JA-03 | Tests | Partial | fieldset+include happy, not-loaded, sparse outline |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M6-JA-03` — the fieldset + include happy path and sparse filtering are tested; no test asserts `RelationNotLoaded` (the fixture always reports its relation as loaded).
 
 ## 10. Cross-References
 - API: [api-jsonapi](../../api/intelligence-delivery/api-jsonapi.md)

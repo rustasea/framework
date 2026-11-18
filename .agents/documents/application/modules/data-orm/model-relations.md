@@ -106,10 +106,17 @@ enum ModelError { MissingPrimaryKey, RelationNotFound { name: String } }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M2-MOD-01 | Derive macro | Todo | `id`/`timestamps`/`soft_delete`/table name/relations/serde |
-| F-M2-MOD-02 | HasMany/BelongsTo | Todo | `with("posts")` eager load + `relation_loaded` |
-| F-M2-MOD-03 | Soft delete | Todo | `deleted_at` partial index + `find(1)` without `withTrashed` → `None` |
-| F-M2-MOD-04 | Tests | Todo | CRUD + serde round-trip (0/1/5) + depth cap |
+| F-M2-MOD-01 | Derive macro | Partial | `id`/`timestamps`/`soft_delete`/table name/relations/serde |
+| F-M2-MOD-02 | HasMany/BelongsTo | Done | `with("posts")` eager load + `relation_loaded` |
+| F-M2-MOD-03 | Soft delete | Partial | `deleted_at` partial index + `find(1)` without `withTrashed` → `None` |
+| F-M2-MOD-04 | Tests | Partial | CRUD + serde round-trip (0/1/5) + depth cap |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M2-MOD-01` — `#[derive(Model)]` handles the id, timestamps, soft deletes, and the table name (`crates/rustasea-macros/src/model.rs:178`); it cannot declare relations (a derived model has an empty `relations()` and callers pass `with_relations(...)` per query) and emits nothing for serde.
+> - `F-M2-MOD-03` — the soft-delete global scope hides trashed rows (`crates/rustasea-orm/src/scopes.rs:72`); there is no `deleted_at` partial index (the schema builder has no partial-index DDL) and no `find` method.
+> - `F-M2-MOD-04` — CRUD, soft delete, the depth cap, and a serde round trip with two related rows are tested; the 0/1/5 round-trip cases are not.
 
 ## 10. Cross-References
 - Design: `architecture.md BC-2` · `domain.md BC-2` · `tdd.md BC-2` · `database.md §2 (users/posts)`

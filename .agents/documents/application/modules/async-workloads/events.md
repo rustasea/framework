@@ -97,10 +97,16 @@ struct UserCreated { id: u64 } // example app-level
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M4-EVT-01 | Event/Listener | Todo | `Event`+`Listener<E>` traits + `QUEUE` |
-| F-M4-EVT-02 | Dispatcher | Todo | `dispatch` + `dispatchAfterResponse` buffered flush |
-| F-M4-EVT-03 | Renames | Todo | `JobAttempted{exception}`/`QueueBusy{connectionName}` |
-| F-M4-EVT-04 | Tests | Todo | async listener→Job, after-response spy, field names |
+| F-M4-EVT-01 | Event/Listener | Done | `Event`+`Listener<E>` traits + `QUEUE` |
+| F-M4-EVT-02 | Dispatcher | Partial | `dispatch` + `dispatchAfterResponse` buffered flush |
+| F-M4-EVT-03 | Renames | Done | `JobAttempted{exception}`/`QueueBusy{connectionName}` |
+| F-M4-EVT-04 | Tests | Partial | async listener→Job, after-response spy, field names |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M4-EVT-02` — `dispatch` is real; `dispatch_after_response` only pushes into `EventSink` and no non-test code drains it, so after-response listeners never run (`crates/rustasea-events/src/dispatcher.rs:254`).
+> - `F-M4-EVT-04` — the async listener → job → worker path is tested (`crates/rustasea-events/tests/queued_listener.rs`); there is no after-response spy test and no field-name test for `JobAttempted`/`QueueBusy`.
 
 ## 10. Cross-References
 - API: [api-events-schedule](../../api/async-workloads/api-events-schedule.md) — events section

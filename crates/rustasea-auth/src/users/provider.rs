@@ -34,8 +34,9 @@
 /// call asynchronously inside its boxed future — `find_by_email` issues a
 /// `SELECT`, `create` an `INSERT`, and so on. There is no pre-loading and no
 /// feature gate: the async boundary is the trait itself, so the ORM adapter
-/// returns its boxed query future directly. This crate stays DB-agnostic and
-/// never depends on `sqlx`/`rustasea-orm`.
+/// returns its boxed query future directly. [`DatabaseUserProvider`] is that
+/// adapter over the `rustasea-orm` connection pool and the scaffold `users`
+/// table.
 use std::future::Future;
 use std::pin::Pin;
 
@@ -43,8 +44,10 @@ use crate::error::{AuthError, Result};
 
 use super::{AuthUserRecord, UserLookup};
 
+mod database;
 mod memory;
 
+pub use database::DatabaseUserProvider;
 pub use memory::MemoryUserProvider;
 
 /// Input for [`UserProvider::create`] (registration).

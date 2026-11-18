@@ -32,9 +32,13 @@ impl client::Handler for ClientHandler {
     /// Verify the server host key against the configured pin (if any).
     async fn check_server_key(
         &mut self,
-        server_public_key: &russh::keys::ssh_key::PublicKey,
+        server_public_key: &russh::keys::PublicKeyOrCertificate,
     ) -> std::result::Result<bool, Self::Error> {
-        let actual = server_public_key.fingerprint(HashAlg::Sha256).to_string();
+        // A host certificate is pinned by the fingerprint of the key it certifies.
+        let actual = server_public_key
+            .public_key()
+            .fingerprint(HashAlg::Sha256)
+            .to_string();
         match &self.expected_fingerprint {
             Some(expected) => Ok(actual == *expected),
             None => Ok(true),

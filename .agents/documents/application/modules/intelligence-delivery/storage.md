@@ -107,10 +107,15 @@ enum StorageError { NotFound, PathTraversal, StoreUnavailable }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M6-STO-01 | Read-through | Todo | primary→fallback + copy_back + NotFound uniform |
-| F-M6-STO-02 | Path confinement | Todo | `path.starts_with(disk_root)` → `PathTraversal` |
-| F-M6-STO-03 | Disks | Todo | `object_store` vs `tokio::fs` abstraction |
-| F-M6-STO-04 | Tests | Todo | fallback read, PathTraversal corpus, copy_back, missing uniform |
+| F-M6-STO-01 | Read-through | Done | primary→fallback + copy_back + NotFound uniform |
+| F-M6-STO-02 | Path confinement | Done | `path.starts_with(disk_root)` → `PathTraversal` |
+| F-M6-STO-03 | Disks | Done | `object_store` vs `tokio::fs` abstraction |
+| F-M6-STO-04 | Tests | Partial | fallback read, PathTraversal corpus, copy_back, missing uniform |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M6-STO-04` — fallback read, copy-back, and uniform `NotFound` are tested (`crates/rustasea-storage/tests/storage_facade.rs` and the `manager`/`disk`/`path` unit tests); the path-traversal corpus is not — only `../../etc/passwd` and symlink escapes are covered, and `testing/fixtures/path-traversal.corpus.json` is loaded by no test.
 
 ## 10. Cross-References
 - API: [api-storage](../../api/intelligence-delivery/api-storage.md)

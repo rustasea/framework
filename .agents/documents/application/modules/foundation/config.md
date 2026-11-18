@@ -94,10 +94,17 @@ impl ShutdownHandle { async fn drain(self, timeout: Duration) -> Result<(), Shut
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M0-CFG-01 | ConfigRegistry | Todo | layered merge + Deserialize |
-| F-M0-CFG-02 | Diagnostics | Todo | `ConfigError::Parse { file,line,source }` |
-| F-M0-CFG-03 | Shutdown | Todo | `tokio::signal` drain + timeout |
-| F-M0-CFG-04 | Tests | Todo | layered precedence + invalid TOML line + drain |
+| F-M0-CFG-01 | ConfigRegistry | Done | layered merge + Deserialize |
+| F-M0-CFG-02 | Diagnostics | Partial | `ConfigError::Parse { file,line,source }` |
+| F-M0-CFG-03 | Shutdown | Partial | `tokio::signal` drain + timeout |
+| F-M0-CFG-04 | Tests | Partial | layered precedence + invalid TOML line + drain |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M0-CFG-02` — there is no typed `ConfigError::Parse { file, line, source }`; invalid TOML surfaces as the `config` crate's error turned into a string (`BootError::Config`, `crates/rustasea-foundation/src/lib.rs:211`).
+> - `F-M0-CFG-03` — the signal is caught, but `graceful` ignores its timeout (`crates/rustasea-foundation/src/shutdown.rs:6`) and the CLI `drain_with_timeout` has no caller; the only real drain is axum's graceful shutdown, which has no timeout.
+> - `F-M0-CFG-04` — layered precedence and bad value types are tested; there is no test for invalid TOML syntax with a line number and no drain test.
 
 ## 10. Cross-References
 - API: [api-bootstrap](../../api/foundation/api-bootstrap.md)

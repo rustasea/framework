@@ -91,10 +91,15 @@ fn event_stream<S>(stream: S) -> Response // Content-Type: text/event-stream (s.
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M6-BRD-01 | ShouldBroadcast | Todo | channels Private/Public/Presence + broadcastOn |
-| F-M6-BRD-02 | WS + auth | Todo | `axum ws` + Authorize + close 4403 |
-| F-M6-BRD-03 | SSE | Todo | `eventStream` `text/event-stream` frames + bounded mpsc |
-| F-M6-BRD-04 | Tests | Todo | authorized receives, unauthorized 4403, SSE 2 frames, WS AI streaming |
+| F-M6-BRD-01 | ShouldBroadcast | Done | channels Private/Public/Presence + broadcastOn |
+| F-M6-BRD-02 | WS + auth | Done | `axum ws` + Authorize + close 4403 |
+| F-M6-BRD-03 | SSE | Done | `eventStream` `text/event-stream` frames + bounded mpsc |
+| F-M6-BRD-04 | Tests | Partial | authorized receives, unauthorized 4403, SSE 2 frames, WS AI streaming |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M6-BRD-04` — authorized receive and the two-frame SSE case are tested; the 4403 close is covered only as an error-to-code mapping (no live socket test), and WebSocket AI streaming has no test.
 
 ## 10. Cross-References
 - API: [api-broadcast](../../api/intelligence-delivery/api-broadcast.md)

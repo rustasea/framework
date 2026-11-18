@@ -53,6 +53,28 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Added
 
+- 2026-11-18 - Database-backed user provider: `DatabaseUserProvider` implements
+  the async `UserProvider` seam over the scaffold `users` table (registration,
+  login, password reset, email verification, profile and timezone updates;
+  soft-deleted users do not resolve), and the runnable app installs it at boot
+  when the default guard's provider is ORM-backed and the table exists,
+  otherwise staying fail-closed (M3; `feat(auth): add DatabaseUserProvider over
+  the users table`; `feat(app): read users from the database when the users
+  table exists`).
+- 2026-11-18 - Gemini and Bedrock providers through their OpenAI-compatible
+  endpoints: `provider_from_env("gemini")` uses `GEMINI_API_KEY`, and
+  `provider_from_env("bedrock")` uses a Bedrock API key
+  (`AWS_BEARER_TOKEN_BEDROCK`) with `AWS_REGION`; the provider-native APIs are
+  not implemented (M6; `feat(ai): serve gemini and bedrock through their
+  OpenAI-compatible endpoints`).
+- 2026-11-18 - Failed inline `sync` dispatches are persisted to `failed_jobs`
+  through the registered `database` connection as a retryable job envelope, so
+  they survive the process and appear in `queue:failed`; without a database
+  connection they still fall back to the in-memory list (M4; `feat(queue):
+  persist failed sync jobs through the database connection`).
+- 2026-11-18 - `rustasea::mail` re-export of `rustasea-mail` from the umbrella
+  crate, with `mail-smtp` and `mail-templates` features (M6; `feat(rustasea):
+  re-export rustasea-mail as rustasea::mail`).
 - 2026-09-24 - `storage-s3` umbrella feature forwarding to
   `rustasea-storage/aws` (the `aws` feature needs rustc 1.89+ through
   `object_store`'s `crc-fast` dependency), and a Docker-backed RustFS suite
@@ -129,6 +151,36 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Changed
 
+- 2026-11-18 - **Breaking:** `HttpProviderConfig` gains the public field
+  `embedding_model`, so downstream struct literals that construct it directly
+  must set the field. It is populated from `<PROVIDER>_EMBEDDING_MODEL` (else
+  the provider's known embedding model) and, when neither is present, embeddings
+  requests fall back to the configured chat model (M6; `fix(ai): send an
+  embedding model, not the chat model, on embeddings requests`).
+- 2026-11-18 - Documentation brought in line with the code: `docs/laravel-parity.md`
+  rows for events, batches, unique jobs, sessions, the user provider, mail,
+  notifications, the gate, the password-reset store, the scheduler, and the AI
+  SDK; as-built status on the roadmap and sprint documents; and a checked Status
+  column with open items on the 110 implementation-task rows under
+  `.agents/documents/application/modules/` (55 done, 53 partial, 2 not
+  started). `docs/milestones.md` returns M4 to Partial (the scheduler cannot
+  dispatch a due command, schedule pause state is per-process, and
+  after-response events are never flushed) and records that the AI agent
+  runtime does not call a provider (M0-M6; `docs: sync planning and status
+  documents with the code`).
+- 2026-11-18 - Embeddings requests send an embedding model instead of the
+  provider's chat model: `<PROVIDER>_EMBEDDING_MODEL`, else the provider's known
+  embedding model (openai, gemini, mistral), else the default model as before
+  (M6; `fix(ai): send an embedding model, not the chat model, on embeddings
+  requests`).
+- 2026-11-18 - Sync dead letters keep the job payload: the body is captured
+  before the job runs, where it was previously read after execution had consumed
+  it and stored as `null` (M4; `feat(queue): persist failed sync jobs through
+  the database connection`).
+- 2026-11-18 - A UUID stored in a column declared `UUID` now reads back on
+  SQLite, where rows fetched through `fetch_json` previously returned `null` for
+  the id (M2; `fix(orm): decode a UUID stored in a column declared UUID on
+  SQLite`).
 - 2026-09-24 - `s3` disks now work with S3-compatible services such as RustFS
   and MinIO: an explicit `http://` endpoint enables `object_store`'s
   `allow_http` (previously every request failed with a reqwest builder error,

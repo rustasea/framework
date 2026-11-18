@@ -1,6 +1,6 @@
 # Sprint 06 — M5 DX, CLI & Testing
 
-> **Milestone:** M5 · **Window:** 2027-05-15 → 2027-08-31 · **Status:** In Progress — core surfaces landed (M5 generators, M6 broadcast/search/storage/ai), drivers/SDKs pending · Delivered ahead of 2027 window per 2026-09 automation (core landed 2026-09-09)
+> **Milestone:** M5 · **Window:** 2027-05-15 → 2027-08-31 · **Status:** Partial as-built (2026-11-18) — CLI, the 17 `make:*` generators, the scaffolder, and the testing harness landed; generated controllers still need manual route registration · Delivered ahead of 2027 window per 2026-09 automation (core landed 2026-09-09)
 > **Parents:** `../roadmap.md` · `prd.md` FR-500–FR-509 · `fsd.md` FS-M5-01–FS-M5-07 · `design/architecture.md`
 > **Depends On:** M0–M4 (Sprints 01–05)
 > **Crates:** `rustasea-cli`, `rustasea-macros` (generators + attrs), `rustasea-testing`

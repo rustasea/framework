@@ -1,9 +1,10 @@
 # Sprint 05 — M4 Queue, Cache, Scheduling & Events
 
-> **Milestone:** M4 · **Window:** 2027-04-01 → 2027-06-30 · **Status:** Planned
+> **Milestone:** M4 · **Window:** 2027-04-01 → 2027-06-30 · **Status:** Partial as-built (2026-11-18) — queue drivers, worker, failed jobs, cache stores, and queued listeners landed; the scheduler cannot dispatch a due command, schedule pause state is per-process, and after-response events are never flushed · Delivered ahead of the planned window
 > **Parents:** `../roadmap.md` · `prd.md` FR-400–FR-410 · `fsd.md` FS-M4-01–FS-M4-06 · `design/architecture.md` + `design/database.md`
 > **Depends On:** M0 (S01), M2 (S03), M3 (S04)
 > **Crates:** `rustasea-queue`, `rustasea-cache`, `rustasea-events`, `rustasea-schedule`
+> **Planning vs as-built:** Sprint scope/window is the plan. Live status: [`docs/milestones.md`](../../../../docs/milestones.md) — the authoritative as-built status source (TASK-003).
 
 ---
 

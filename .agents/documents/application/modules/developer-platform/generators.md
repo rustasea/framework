@@ -94,12 +94,19 @@ enum GeneratorError { AlreadyExists { path: String } }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M5-GEN-01 | make:crud | Todo | controller/model (+ `-m` migration) + `--force` |
-| F-M5-GEN-02 | make:async | Todo | job/event/listener/observer/test/seeder |
-| F-M5-GEN-03 | make:ai | Todo | agent/tool (M6 adjacency) |
-| F-M5-GEN-04 | Attributes | Todo | `#[tries]`/`#[backoff]`/`#[timeout]`/… attrs |
-| F-M5-GEN-05 | Lint | Todo | `rustfmt`+`clippy -D warnings` gate (C-04) |
-| F-M5-GEN-06 | Tests | Todo | controller lint, model -m both artifacts, AlreadyExists, outline |
+| F-M5-GEN-01 | make:crud | Done | controller/model (+ `-m` migration) + `--force` |
+| F-M5-GEN-02 | make:async | Done | job/event/listener/observer/test/seeder |
+| F-M5-GEN-03 | make:ai | Done | agent/tool (M6 adjacency) |
+| F-M5-GEN-04 | Attributes | Partial | `#[tries]`/`#[backoff]`/`#[timeout]`/… attrs |
+| F-M5-GEN-05 | Lint | Partial | `rustfmt`+`clippy -D warnings` gate (C-04) |
+| F-M5-GEN-06 | Tests | Partial | controller lint, model -m both artifacts, AlreadyExists, outline |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M5-GEN-04` — every attribute exists as a proc-macro (snake_case names, e.g. `#[fail_on_timeout]`) but each only emits a `__RUSTASEA_*` constant; only tries/backoff/timeout have a runtime reader, and the app binds them by hand through `register_job_with_policy` (`crates/rustasea-queue/src/driver/worker.rs:68`). Nothing reads the fail-on-timeout, without-broadcasting, repair-tool-calls, usage, help, hidden, queue, or connection constants.
+> - `F-M5-GEN-05` — the `fmt --check` + `clippy -D warnings` gate runs on the framework workspace (`cargo xtask ci`); nothing runs rustfmt or clippy on `make:*` output — only `make:module` output gets a real `cargo check` (`crates/rustasea-cli/tests/module_compiles.rs`).
+> - `F-M5-GEN-06` — model `-m` writing both artifacts and a loop over every kind are tested (`crates/rustasea-cli/tests/make_generators/`); there is no lint test for controller output, and the already-exists test asserts only `is_err()`, not the `AlreadyExists` variant.
 
 ## 10. Cross-References
 - API: [api-cli](../../api/developer-platform/api-cli.md) — generators table

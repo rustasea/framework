@@ -119,13 +119,20 @@ struct AiChunk { event: String, data: String } // event: token frames
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M6-AG-01 | Agent+Tool core | Todo | `Agent`/`Tool` traits + `#[derive(Agent)]` + anonymous `Ai::agent` |
-| F-M6-AG-02 | Streaming/broadcast/queue | Todo | `Stream<AiChunk>` WS + queued tools |
-| F-M6-AG-03 | MCP + sub-agents | Todo | `feature="mcp"` discovery + sub-agents invoked as tools |
-| F-M6-AG-04 | Deferred loaders | Todo | `SimilaritySearch`/`FileStorage`/`ToolSearch` |
-| F-M6-AG-05 | Embedding+vector | Todo | `Str::toEmbeddings` + `dropVectorIndex` |
-| F-M6-AG-06 | Generators | Todo | `make:agent`/`make:tool` |
-| F-M6-AG-07 | Tests | Todo | stream, generator, sub-agent+middleware, deferred, MCP gate, WS broadcast, queued tools |
+| F-M6-AG-01 | Agent+Tool core | Partial | `Agent`/`Tool` traits + `#[derive(Agent)]` + anonymous `Ai::agent` |
+| F-M6-AG-02 | Streaming/broadcast/queue | Partial | `Stream<AiChunk>` WS + queued tools |
+| F-M6-AG-03 | MCP + sub-agents | Done | `feature="mcp"` discovery + sub-agents invoked as tools |
+| F-M6-AG-04 | Deferred loaders | Done | `SimilaritySearch`/`FileStorage`/`ToolSearch` |
+| F-M6-AG-05 | Embedding+vector | Done | `Str::toEmbeddings` + `dropVectorIndex` |
+| F-M6-AG-06 | Generators | Done | `make:agent`/`make:tool` |
+| F-M6-AG-07 | Tests | Partial | stream, generator, sub-agent+middleware, deferred, MCP gate, WS broadcast, queued tools |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M6-AG-01` — `Tool` is a trait and `Ai::agent` exists, but `Agent` is a struct, `#[derive(Agent)]` does not exist, and the agent runtime never calls an `AiProvider`: `Agent::run_inner` echoes the prompt and runs a tool only when the prompt literally contains `tool:name(args)` (`crates/rustasea-ai/src/agent.rs:247`).
+> - `F-M6-AG-02` — `prompt_stream` returns a chunk stream and `AgentRunJob` queues a whole run (`crates/rustasea-ai/src/queue.rs:41`, behind the `queue` feature, which the umbrella crate does not forward), but the stream carries the echo output; the WebSocket path does not depend on `rustasea-ai`, and individual tool calls are not queued.
+> - `F-M6-AG-07` — stream, sub-agent, deferred loaders, the MCP gate, queued runs, and the generators have tests; there is no WebSocket broadcast test of AI streaming, and middleware is tested only by calling its hooks directly, not through an agent run.
 
 ## 10. Cross-References
 - API: [api-ai](../../api/intelligence-delivery/api-ai.md) — Agents/streaming/broadcast/queue/MCP sections

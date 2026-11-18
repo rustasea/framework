@@ -99,10 +99,18 @@ enum AiError { UnsupportedCapability { provider: String, capability: String }, P
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M6-AI-01 | AiProvider trait | Todo | 7 methods + UnsupportedCapability |
-| F-M6-AI-02 | 12 adapters | Todo | per-provider feature flags + text/embeddings/… |
-| F-M6-AI-03 | Degraded-mode | Todo | `rustasea-ai` optional; `cargo tree` probe |
-| F-M6-AI-04 | Tests | Todo | switch provider preserves shape, unsupported capability outline, flag gate |
+| F-M6-AI-01 | AiProvider trait | Partial | 7 methods + UnsupportedCapability |
+| F-M6-AI-02 | 12 adapters | Partial | per-provider feature flags + text/embeddings/… |
+| F-M6-AI-03 | Degraded-mode | Partial | `rustasea-ai` optional; `cargo tree` probe |
+| F-M6-AI-04 | Tests | Partial | switch provider preserves shape, unsupported capability outline, flag gate |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M6-AI-01` — `AiProvider` has `text`, `stream_text`, `image`, `audio`, `embeddings`, `rerank`, and `files` plus `UnsupportedCapability`; there is no `vector_stores` method (only the `Capability::VectorStores` variant, `crates/rustasea-ai/src/provider.rs:51`).
+> - `F-M6-AI-02` — all 12 names resolve to a real HTTP adapter (`crates/rustasea-ai/src/providers/client.rs:84`; 11 OpenAI-style including `gemini` and `bedrock` through their OpenAI-compatible endpoints, plus Anthropic), covering text, streaming, and — OpenAI-style only — embeddings. There are no per-provider Cargo features (`crates/rustasea-ai/Cargo.toml:25`), and image, audio, rerank, and files exist only in the in-process stand-in.
+> - `F-M6-AI-03` — `rustasea-ai` is optional behind the umbrella `ai` feature (`crates/rustasea/Cargo.toml`), but no `cargo tree` degraded-mode probe exists in CI, `xtask`, or a test.
+> - `F-M6-AI-04` — provider-switch shape is tested for openai/anthropic in-process only; unsupported capability is tested for two provider/capability pairs, not an outline over all 12; there is no flag-gate test because there are no per-provider flags.
 
 ## 10. Cross-References
 - API: [api-ai](../../api/intelligence-delivery/api-ai.md) — SDK section

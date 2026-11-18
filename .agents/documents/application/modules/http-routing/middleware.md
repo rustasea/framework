@@ -119,10 +119,16 @@ CLI `route:list` shows middleware column per route as `["throttle:60,1","cors"]`
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M1-MW-01 | Throttle | Todo | `per_minute`/`by_*` + `429 Retry-After` + `trusted_proxies` |
-| F-M1-MW-02 | Cors | Todo | `allow_origins` + `Access-Control-Allow-Origin` per allow-list |
-| F-M1-MW-03 | Extractors+Valid | Todo | `Json`/`Path`/`Query` + `ErrorBag` 422 strict |
-| F-M1-MW-04 | Tests | Todo | throttle 61st, CORS matrix, ErrorBag dual-field |
+| F-M1-MW-01 | Throttle | Done | `per_minute`/`by_*` + `429 Retry-After` + `trusted_proxies` |
+| F-M1-MW-02 | Cors | Done | `allow_origins` + `Access-Control-Allow-Origin` per allow-list |
+| F-M1-MW-03 | Extractors+Valid | Partial | `Json`/`Path`/`Query` + `ErrorBag` 422 strict |
+| F-M1-MW-04 | Tests | Partial | throttle 61st, CORS matrix, ErrorBag dual-field |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M1-MW-03` — `FormRequest<T>` (JSON body) returns a 422 `ErrorBag` (`crates/rustasea-validation/src/form_request.rs:71`); `Json` / `Path` / `Query` are plain axum extractors whose rejections are axum's 400/415, and unknown fields are rejected only if the user's type sets `#[serde(deny_unknown_fields)]`.
+> - `F-M1-MW-04` — the throttle is tested with a limit of 3 (4th rejected), not the 61st request; the multi-field `ErrorBag` is tested; the CORS test only proves the layer composes — there is no origin matrix.
 
 ## 11. Cross-References
 - Design: `domain.md BC-1` · `tdd.md BC-1` · `api-contracts.md §1` · [ADR-0003](../../../../../docs/adr/ADR-0003-axum-vs-actix.md)

@@ -98,10 +98,15 @@ enum VectorError { ExtensionMissing { extension: &'static str, hint: String }, V
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M2-VEC-01 | Blueprint | Todo | `vector(n)` + `dropVectorIndex` DDL |
-| F-M2-VEC-02 | Builder | Todo | `whereVectorSimilarTo` dispatch + dimension guard |
-| F-M2-VEC-03 | Migration guard | Todo | `has_extension("vector")` → typed error |
-| F-M2-VEC-04 | Tests | Todo | nearest-10, extension missing, dim mismatch |
+| F-M2-VEC-01 | Blueprint | Done | `vector(n)` + `dropVectorIndex` DDL |
+| F-M2-VEC-02 | Builder | Done | `whereVectorSimilarTo` dispatch + dimension guard |
+| F-M2-VEC-03 | Migration guard | Done | `has_extension("vector")` → typed error |
+| F-M2-VEC-04 | Tests | Partial | nearest-10, extension missing, dim mismatch |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M2-VEC-04` — nearest-10 is checked as SQL text only (`crates/rustasea-orm/tests/vector.rs`); the live round trip uses k=2 and is skipped without `DATABASE_URL` + pgvector; the missing-extension case runs through SQLite, not a Postgres without pgvector.
 
 ## 10. Cross-References
 - API: [api-query-builder](../../api/data-orm/api-query-builder.md) — vector section

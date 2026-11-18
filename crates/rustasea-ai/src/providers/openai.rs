@@ -151,8 +151,16 @@ impl AiProvider for OpenAiProvider {
     }
 
     async fn embeddings(&self, inputs: &[String]) -> Result<EmbeddingResponse> {
+        // Bedrock exposes no built-in embedding model, so silently falling back
+        // to the chat model (see `embedding_model()`) would send a model its
+        // embeddings endpoint rejects. Require one to be configured instead.
+        if self.config.provider == "bedrock" && self.config.embedding_model.is_none() {
+            return Err(AiError::configuration(
+                "bedrock requires an embedding model: set BEDROCK_EMBEDDING_MODEL",
+            ));
+        }
         let body = json!({
-            "model": self.config.default_model,
+            "model": self.config.embedding_model(),
             "input": inputs,
         });
         let request = with_api_version(

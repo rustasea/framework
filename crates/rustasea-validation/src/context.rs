@@ -156,10 +156,7 @@ impl ValidationContext for MemoryContext {
             // The only conflicting row is the caller's own row.
             return Some(ignore_id == Some(owner.as_str()));
         }
-        if self.taken.contains(&key) {
-            return Some(false);
-        }
-        Some(true)
+        Some(!self.taken.contains(&key))
     }
 
     fn current_password_matches(&self, plaintext: &str) -> Option<bool> {

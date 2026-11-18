@@ -248,8 +248,7 @@ fn install_broadcasting(_app: &Application) {}
 /// `DATABASE__URL` overlay, then the default connection from
 /// `config/database.toml` (`DatabaseConfig::resolve_url(None)`), then the legacy
 /// top-level `database_url` key.
-#[cfg(feature = "queue-dashboard")]
-fn resolve_database_url(loader: &rustasea::ConfigLoader) -> Result<String, String> {
+pub(crate) fn resolve_database_url(loader: &rustasea::ConfigLoader) -> Result<String, String> {
     for key in ["DATABASE_URL", "DATABASE__URL"] {
         if let Ok(url) = std::env::var(key) {
             if !url.trim().is_empty() {

@@ -1,9 +1,10 @@
 # Sprint 03 — M2 ORM & Database
 
-> **Milestone:** M2 · **Window:** 2027-01-01 → 2027-03-31 · **Status:** Planned
+> **Milestone:** M2 · **Window:** 2027-01-01 → 2027-03-31 · **Status:** Done as-built (2026-11-18) · Delivered ahead of the planned window
 > **Parents:** `../roadmap.md` · `prd.md` FR-200–FR-210 · `fsd.md` FS-M2-01–FS-M2-06 · `design/architecture.md` + `design/database.md` + `design/domain.md`
 > **Depends On:** M0 (S01), M1 (S02)
 > **Crates:** `rustasea-orm`, `rustasea-macros` (`#[derive(Model)]`) — `pgvector` behind `vector` feature
+> **Planning vs as-built:** Sprint scope/window is the plan. Live status: [`docs/milestones.md`](../../../../docs/milestones.md) — the authoritative as-built status source (TASK-003).
 
 ---
 

@@ -215,6 +215,13 @@ where
     if let Ok(v) = row.try_get::<serde_json::Value, _>(index) {
         return v;
     }
+    // Last resort: a UUID stored in a column whose declared type the driver
+    // does not report as UUID/BLOB. SQLite gives a column declared `UUID`
+    // (the portable DDL the scaffold migrations emit) NUMERIC affinity, so the
+    // 16-byte value matches none of the hints above.
+    if let Ok(v) = row.try_get::<uuid::Uuid, _>(index) {
+        return serde_json::Value::String(v.to_string());
+    }
     serde_json::Value::Null
 }
 

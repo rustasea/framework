@@ -45,6 +45,8 @@ pub struct HttpProviderConfig {
     pub api_key: Option<String>,
     /// Model used when a request does not override it.
     pub default_model: String,
+    /// Model used for `embeddings`; `None` reuses `default_model`.
+    pub embedding_model: Option<String>,
     /// Wire style spoken by the provider.
     pub style: ProviderStyle,
     /// Credential placement.
@@ -219,9 +221,38 @@ impl HttpProviderConfig {
                 },
                 &lookup,
             ),
+            // Gemini's OpenAI-compatible surface (chat completions, embeddings).
+            "gemini" => resolve_env(
+                "gemini",
+                EnvSpec {
+                    key_env: Some("GEMINI_API_KEY"),
+                    key_required: true,
+                    base_env: Some("GEMINI_BASE_URL"),
+                    default_base: "https://generativelanguage.googleapis.com/v1beta/openai",
+                    model_env: "GEMINI_MODEL",
+                    default_model: "gemini-4-hydrogen",
+                    auth: AuthStyle::Bearer,
+                    style: ProviderStyle::OpenAi,
+                },
+                &lookup,
+            ),
             "azure" => azure_from_env(&lookup),
+            "bedrock" => bedrock_from_env(&lookup),
             other => Err(AiError::UnknownProvider(other.to_string())),
         }
+    }
+
+    /// The model sent with an `embeddings` request.
+    pub fn embedding_model(&self) -> &str {
+        self.embedding_model
+            .as_deref()
+            .unwrap_or(&self.default_model)
+    }
+
+    /// Override the embeddings model.
+    pub fn with_embedding_model(mut self, model: impl Into<String>) -> Self {
+        self.embedding_model = Some(model.into());
+        self
     }
 
     /// Override the base URL (endpoint root without trailing slash).
@@ -277,11 +308,30 @@ where
         .and_then(lookup)
         .unwrap_or_else(|| spec.default_base.to_string());
     let default_model = lookup(spec.model_env).unwrap_or_else(|| spec.default_model.to_string());
+    // `<PROVIDER>_EMBEDDING_MODEL`, else the provider's embedding model: a chat
+    // model is not accepted by an embeddings endpoint. The OpenAI built-in is
+    // scoped to OpenAI's own endpoint — a self-hosted OpenAI-compatible server
+    // (a custom `OPENAI_BASE_URL`) may expose a different embedding model, so
+    // it keeps the configured default model unless `OPENAI_EMBEDDING_MODEL` is
+    // set.
+    let embedding_model =
+        lookup(&spec.model_env.replace("_MODEL", "_EMBEDDING_MODEL")).or_else(|| {
+            let builtin = match provider {
+                "openai" if base_url.trim_end_matches('/') == spec.default_base => {
+                    Some("text-embedding-3-small")
+                }
+                "gemini" => Some("gemini-embedding-001"),
+                "mistral" => Some("mistral-embed"),
+                _ => None,
+            };
+            builtin.map(str::to_string)
+        });
     Ok(HttpProviderConfig {
         provider,
         base_url: base_url.trim_end_matches('/').to_string(),
         api_key,
         default_model,
+        embedding_model,
         style: spec.style,
         auth: spec.auth,
         api_version: None,
@@ -312,11 +362,54 @@ where
         ),
         api_key: Some(api_key),
         default_model: deployment,
+        embedding_model: None,
         style: ProviderStyle::OpenAi,
         auth: AuthStyle::Header("api-key"),
         api_version: Some(
             lookup("AZURE_OPENAI_API_VERSION").unwrap_or_else(|| "2024-10-21".to_string()),
         ),
+        timeout: DEFAULT_TIMEOUT,
+        max_tokens: 1024,
+    })
+}
+
+/// Resolve Amazon Bedrock's OpenAI-compatible endpoint (region-scoped).
+///
+/// Authenticates with a Bedrock API key sent as a bearer token
+/// (`AWS_BEARER_TOKEN_BEDROCK`), so no SigV4 request signing is involved. The
+/// endpoint host is built from `AWS_REGION` (or `AWS_DEFAULT_REGION`) unless
+/// `BEDROCK_BASE_URL` overrides it.
+fn bedrock_from_env<F>(lookup: &F) -> Result<HttpProviderConfig>
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let missing = |env: &str| {
+        AiError::configuration(format!("{env} is not set (required for provider bedrock)"))
+    };
+    let api_key =
+        lookup("AWS_BEARER_TOKEN_BEDROCK").ok_or_else(|| missing("AWS_BEARER_TOKEN_BEDROCK"))?;
+    let base_url = match lookup("BEDROCK_BASE_URL") {
+        Some(base) => base,
+        None => {
+            let region = lookup("AWS_REGION")
+                .or_else(|| lookup("AWS_DEFAULT_REGION"))
+                .ok_or_else(|| missing("AWS_REGION"))?;
+            format!(
+                "https://bedrock-runtime.{}.amazonaws.com/openai/v1",
+                region.trim()
+            )
+        }
+    };
+    Ok(HttpProviderConfig {
+        provider: "bedrock",
+        base_url: base_url.trim_end_matches('/').to_string(),
+        api_key: Some(api_key),
+        default_model: lookup("BEDROCK_MODEL")
+            .unwrap_or_else(|| "openai.gpt-oss-120b-1:0".to_string()),
+        embedding_model: lookup("BEDROCK_EMBEDDING_MODEL"),
+        style: ProviderStyle::OpenAi,
+        auth: AuthStyle::Bearer,
+        api_version: None,
         timeout: DEFAULT_TIMEOUT,
         max_tokens: 1024,
     })

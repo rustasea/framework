@@ -164,11 +164,13 @@ impl QueueDriver for SyncDriver {
     }
 }
 
-/// Placeholder dead-letter sink shared by the driver stubs.
+/// Process-local dead-letter sink.
 ///
-/// The database driver persists dead letters to a real `failed_jobs` table;
-/// this in-memory sink backs the sync/redis drivers and keeps the contract
-/// testable without a server.
+/// The database driver persists dead letters to a real `failed_jobs` table, and
+/// inline `sync` failures are persisted there too once a `database` connection
+/// is registered (see [`dead_letter_sync`]). This in-memory sink is the
+/// fallback when no database is available and keeps the contract testable
+/// without a server.
 static FAILED: std::sync::OnceLock<Mutex<Vec<FailedJob>>> = std::sync::OnceLock::new();
 
 /// Record a dead-letter entry for a permanently failed job.
@@ -177,6 +179,53 @@ pub(crate) fn record_failed(job: FailedJob) {
     if let Ok(mut guard) = list.lock() {
         guard.push(job);
     }
+}
+
+/// Dead-letter a failure from an inline (`sync`) dispatch.
+///
+/// When the configured default connection is registered the entry is persisted
+/// to its `failed_jobs` table, so it survives the process and is listed by
+/// `queue:failed`. The stored payload is the full [`JobPayload`] envelope
+/// addressed to that connection, so `queue:retry` re-enqueues a job a worker
+/// can resolve. Without a database driver, or when the insert fails, the entry
+/// falls back to the process-local sink: a failed job is never dropped.
+pub(crate) async fn dead_letter_sync(
+    type_key: &str,
+    queue: Option<&str>,
+    body: serde_json::Value,
+    exception: String,
+) {
+    // Resolve the configured default connection rather than assuming the
+    // persistence connection is literally named `database`; fall back to the
+    // historical default when the queue config never recorded one.
+    let connection = crate::wiring::configured_default_connection().unwrap_or(DATABASE_CONNECTION);
+    if let Ok(database) = crate::registry::driver(connection) {
+        let queue = queue
+            .map(str::to_string)
+            .or_else(|| {
+                crate::registry::Queue::resolve(type_key)
+                    .ok()
+                    .map(|route| route.queue.to_string())
+            })
+            .unwrap_or_else(|| crate::config::DEFAULT_QUEUE.to_string());
+        let envelope = JobPayload::new(
+            queue.clone(),
+            connection,
+            Some(type_key.to_string()),
+            body.clone(),
+        );
+        let payload = serde_json::to_value(&envelope).unwrap_or_else(|_| body.clone());
+        let persisted = FailedJob::new(SYNC_CONNECTION, queue, payload, exception.clone());
+        match database.dead_letter(persisted).await {
+            Ok(()) => return,
+            Err(error) => tracing::warn!(
+                job = type_key,
+                %error,
+                "persisting a sync failed job failed; keeping it in the in-memory sink"
+            ),
+        }
+    }
+    record_failed(FailedJob::new(SYNC_CONNECTION, type_key, body, exception));
 }
 
 /// Snapshot the current dead-letter entries.

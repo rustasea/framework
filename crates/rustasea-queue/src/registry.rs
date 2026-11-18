@@ -10,10 +10,10 @@ use std::sync::Arc;
 
 use crate::batch::BatchId;
 use crate::driver::{
-    record_failed, DatabaseDriver, QueueDriver, DATABASE_CONNECTION, SYNC_CONNECTION,
+    dead_letter_sync, DatabaseDriver, QueueDriver, DATABASE_CONNECTION, SYNC_CONNECTION,
 };
 use crate::error::{QueueError, Result};
-use crate::job::{run_erased, DispatchHandle, ErasedJob, FailedJob, Job, JobId, JobOutcome};
+use crate::job::{run_erased, DispatchHandle, ErasedJob, Job, JobId, JobOutcome};
 use crate::metrics::{QueueMetrics, Queues};
 use crate::unique::DispatchOutcome;
 
@@ -124,12 +124,16 @@ impl Queue {
     /// Execute an erased job inline on the sync connection.
     ///
     /// Runs the body and returns the `JobOutcome`. `Failed` outcomes are
-    /// dead-lettered; `Retrying` cannot be re-enqueued on sync (no worker to
+    /// dead-lettered (to the `database` connection's `failed_jobs` table when
+    /// one is registered, else the process-local sink); `Retrying` cannot be re-enqueued on sync (no worker to
     /// release it later), so it is dead-lettered too — a sync dispatch never
     /// silently drops a failed job. `Skipped` outcomes (missing-model
     /// suppression, FR-605) are recorded as diagnostics but never dead-lettered
     /// nor retried. The driver buffer is untouched.
     pub(crate) async fn execute_sync(handle: &DispatchHandle) -> Result<JobOutcome> {
+        // Running the job consumes its body, so the payload a dead letter
+        // needs is captured first.
+        let body = handle.exec.as_json();
         let outcome = run_erased(handle.exec.as_ref()).await;
         // A sync dispatch has no later worker to release a retry, so both
         // `Failed` and `Retrying` are dead-lettered with the attempt's trace.
@@ -143,12 +147,13 @@ impl Queue {
             ),
             JobOutcome::Succeeded | JobOutcome::Skipped => return Ok(outcome),
         };
-        record_failed(FailedJob::new(
-            SYNC_CONNECTION,
+        dead_letter_sync(
             handle.exec.type_key(),
-            handle.exec.as_json(),
+            handle.queue.as_deref(),
+            body,
             format!("JobError::MaxAttemptsExceeded: {trace}{suffix}"),
-        ));
+        )
+        .await;
         Ok(outcome)
     }
 
@@ -170,18 +175,21 @@ impl Queue {
     pub async fn chain(jobs: Vec<Arc<dyn ErasedJob>>) -> Result<Vec<JobOutcome>> {
         let mut outcomes = Vec::with_capacity(jobs.len());
         for exec in jobs {
+            // Captured before the run consumes the job body (see `execute_sync`).
+            let body = exec.as_json();
             let outcome = run_erased(exec.as_ref()).await;
             let stopped = !matches!(outcome, JobOutcome::Succeeded);
             if matches!(
                 outcome,
                 JobOutcome::Failed { .. } | JobOutcome::Retrying { .. }
             ) {
-                record_failed(FailedJob::new(
-                    SYNC_CONNECTION,
+                dead_letter_sync(
                     exec.type_key(),
-                    exec.as_json(),
-                    "JobError::MaxAttemptsExceeded",
-                ));
+                    None,
+                    body,
+                    "JobError::MaxAttemptsExceeded".to_string(),
+                )
+                .await;
             }
             outcomes.push(outcome);
             if stopped {

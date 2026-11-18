@@ -396,7 +396,7 @@ impl Router {
     /// Return all registered routes, domain-constrained first.
     pub fn get_routes(&self) -> Vec<RouteEntry> {
         let mut routes = self.routes.clone();
-        routes.sort_by_key(|r| !r.domain.is_some());
+        routes.sort_by_key(|r| r.domain.is_none());
         routes
     }
 

@@ -105,9 +105,14 @@ enum SerializationError { NotAllowed { type_name: String } }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M3-CSRF-01 | PreventRequestForgery | Todo | token-first + `Sec-Fetch-Site` matrix + safe-method exempt |
-| F-M3-CSRF-02 | Hardening | Todo | JSON serialization default + hyphen prefix + allow-list gate |
-| F-M3-CSRF-03 | Tests | Todo | CSRF matrix, NotAllowed, prefix -cache- |
+| F-M3-CSRF-01 | PreventRequestForgery | Done | token-first + `Sec-Fetch-Site` matrix + safe-method exempt |
+| F-M3-CSRF-02 | Hardening | Partial | JSON serialization default + hyphen prefix + allow-list gate |
+| F-M3-CSRF-03 | Tests | Done | CSRF matrix, NotAllowed, prefix -cache- |
+
+> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+>
+> Open items:
+> - `F-M3-CSRF-02` — the JSON serialization default and the `-session-` / `-cache-` prefixes are enforced; the allow-list gate (`SessionPolicy::allow`, `DeserializationAllowList`) exists but nothing calls it — the cache repository deserializes without a check and `cache.serializable_classes` is parsed but unused (`crates/rustasea-cache/src/config.rs:191`).
 
 ## 10. Cross-References
 - API: [api-auth](../../api/identity-access/api-auth.md) — CSRF decision table section

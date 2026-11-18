@@ -59,11 +59,12 @@ pub(crate) fn user_provider() -> Arc<dyn UserProvider> {
     }
 }
 
-/// Test-only override of the process-wide [`UserProvider`] seam.
+/// Replace the process-wide [`UserProvider`] seam.
 ///
-/// The handlers resolve the provider through [`user_provider`], so a test that
+/// The handlers resolve the provider through [`user_provider`]. Boot installs
+/// the database-backed provider here (see
+/// [`crate::bootstrap::auth::install_database_user_provider`]), and a test that
 /// needs a real credential match seeds it here first.
-#[cfg(test)]
 pub(crate) fn install_user_provider(provider: Arc<dyn UserProvider>) {
     if let Ok(mut slot) = provider_cell().write() {
         *slot = provider;

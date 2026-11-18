@@ -286,6 +286,100 @@ fn config_resolution_covers_compatible_providers() {
     assert!(ollama.api_key.is_none());
 }
 
+/// Gemini and Bedrock resolve to their OpenAI-compatible endpoints.
+#[test]
+fn gemini_and_bedrock_resolve_openai_compatible_endpoints() {
+    let gemini = HttpProviderConfig::from_env_with("gemini", |key| match key {
+        "GEMINI_API_KEY" => Some("secret".to_string()),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(gemini.style, ProviderStyle::OpenAi);
+    assert_eq!(gemini.auth, AuthStyle::Bearer);
+    assert_eq!(
+        gemini.base_url,
+        "https://generativelanguage.googleapis.com/v1beta/openai"
+    );
+
+    let bedrock = HttpProviderConfig::from_env_with("bedrock", |key| match key {
+        "AWS_BEARER_TOKEN_BEDROCK" => Some("secret".to_string()),
+        "AWS_DEFAULT_REGION" => Some("ap-southeast-3".to_string()),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(bedrock.style, ProviderStyle::OpenAi);
+    assert_eq!(bedrock.auth, AuthStyle::Bearer);
+    assert_eq!(
+        bedrock.base_url,
+        "https://bedrock-runtime.ap-southeast-3.amazonaws.com/openai/v1"
+    );
+
+    // An explicit base URL needs no region.
+    let custom = HttpProviderConfig::from_env_with("bedrock", |key| match key {
+        "AWS_BEARER_TOKEN_BEDROCK" => Some("secret".to_string()),
+        "BEDROCK_BASE_URL" => Some("https://proxy.internal/openai/v1/".to_string()),
+        "BEDROCK_MODEL" => Some("custom-model".to_string()),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(custom.base_url, "https://proxy.internal/openai/v1");
+    assert_eq!(custom.default_model, "custom-model");
+}
+
+/// NEGATIVE — Gemini and Bedrock name the missing credential or region.
+#[test]
+fn gemini_and_bedrock_report_missing_configuration() {
+    let missing = |provider: &str, env: &[(&str, &str)]| {
+        let error = HttpProviderConfig::from_env_with(provider, |key| {
+            env.iter()
+                .find(|(name, _)| *name == key)
+                .map(|(_, value)| value.to_string())
+        })
+        .unwrap_err();
+        match error {
+            AiError::ConfigurationError(message) => message,
+            other => panic!("unexpected error: {other}"),
+        }
+    };
+    assert!(missing("gemini", &[]).contains("GEMINI_API_KEY"));
+    assert!(missing("bedrock", &[("AWS_REGION", "us-east-1")]).contains("AWS_BEARER_TOKEN_BEDROCK"));
+    assert!(missing("bedrock", &[("AWS_BEARER_TOKEN_BEDROCK", "secret")]).contains("AWS_REGION"));
+}
+
+/// Embeddings use the provider's embedding model, not its chat model.
+#[test]
+fn embeddings_use_a_dedicated_embedding_model() {
+    let key = |_: &str| Some("secret".to_string());
+    let openai = HttpProviderConfig::from_env_with("openai", |name| match name {
+        "OPENAI_API_KEY" => key(name),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(openai.embedding_model(), "text-embedding-3-small");
+    assert_ne!(openai.embedding_model(), openai.default_model);
+
+    // The env override wins over the built-in default.
+    let overridden = HttpProviderConfig::from_env_with("openai", |name| match name {
+        "OPENAI_API_KEY" => key(name),
+        "OPENAI_EMBEDDING_MODEL" => Some("text-embedding-3-large".to_string()),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(overridden.embedding_model(), "text-embedding-3-large");
+
+    // A provider with no known embedding model keeps using its default model.
+    let groq = HttpProviderConfig::from_env_with("groq", |name| match name {
+        "GROQ_API_KEY" => key(name),
+        _ => None,
+    })
+    .unwrap();
+    assert_eq!(groq.embedding_model(), groq.default_model);
+    assert_eq!(
+        groq.with_embedding_model("custom-embed").embedding_model(),
+        "custom-embed"
+    );
+}
+
 /// Factory surfaces the typed error for real providers without credentials.
 #[test]
 fn factory_requires_credentials_for_remote_providers() {
