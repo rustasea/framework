@@ -287,8 +287,21 @@ pub fn uses_database_provider(loader: &ConfigLoader) -> bool {
 pub async fn database_user_provider(url: &str) -> Option<Arc<dyn UserProvider>> {
     let pool = match rustasea::orm::DbPool::connect(url).await {
         Ok(pool) => pool,
+        // A sqlite-only build pointed at a Postgres/MySQL URL (the scaffold's
+        // Docker default is Postgres) is a missing driver feature, not an
+        // unreachable server.
+        Err(rustasea::orm::OrmError::UnsupportedDriver(driver)) => {
+            tracing::warn!(
+                %driver,
+                "auth: database driver feature is missing; user provider stays fail-closed"
+            );
+            return None;
+        }
         Err(error) => {
-            eprintln!("auth: database unreachable, user provider stays fail-closed: {error}");
+            tracing::warn!(
+                %error,
+                "auth: database unreachable, user provider stays fail-closed"
+            );
             return None;
         }
     };
