@@ -192,10 +192,19 @@ impl ServiceProvider for AuthServiceProvider {
 ///
 /// Order is the tie-breaker for providers without `dependencies()`; the
 /// foundation [`Application::boot`] topologically sorts them regardless.
-/// [`AuthServiceProvider`] runs after [`AppServiceProvider`] so app bindings are
-/// in place before the auth wiring reads them.
+/// The framework providers bind the database resolver, cache manager, and queue
+/// connections first (see [`rustasea::services`]); [`AuthServiceProvider`] runs
+/// after [`AppServiceProvider`] so app bindings are in place before the auth
+/// wiring reads them.
 pub fn providers() -> Vec<Box<dyn ServiceProvider>> {
-    vec![Box::new(AppServiceProvider), Box::new(AuthServiceProvider)]
+    use rustasea::services::{CacheServiceProvider, DatabaseServiceProvider, QueueServiceProvider};
+    vec![
+        Box::new(DatabaseServiceProvider),
+        Box::new(CacheServiceProvider),
+        Box::new(QueueServiceProvider),
+        Box::new(AppServiceProvider),
+        Box::new(AuthServiceProvider),
+    ]
 }
 
 #[cfg(test)]

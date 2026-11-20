@@ -27,6 +27,14 @@ async fn main() -> anyhow::Result<()> {
     // `bootstrap/app.rs` — the README-mandated `Application::configure` home.
     let app = bootstrap::app::configure()?;
 
+    // `database` queue connections need a live pool, which providers cannot
+    // open; register them now through the bound connection resolver.
+    match rustasea::services::connect_database_queues(&app).await {
+        Ok(true) => println!("queue: database connections registered"),
+        Ok(false) => {}
+        Err(error) => eprintln!("queue: database connections not registered: {error}"),
+    }
+
     // Read users from the database when auth is configured for it and the
     // `users` table exists; otherwise the fail-closed provider stays in place.
     bootstrap::auth::install_database_user_provider(&app).await;
