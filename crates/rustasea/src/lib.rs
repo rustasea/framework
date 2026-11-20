@@ -11,6 +11,8 @@ pub use rustasea_queue as queue;
 pub use rustasea_schedule as schedule;
 pub use rustasea_timezone as timezone;
 
+pub mod services;
+
 pub use config::ConfigLoader;
 pub use foundation::{Application, Container, ServiceProvider};
 pub use rustasea_auth as auth;
