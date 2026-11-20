@@ -13,12 +13,13 @@ use axum::extract::Request;
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::IntoResponse;
-use axum::routing::MethodRouter;
+use axum::routing::{any_service, on_service, MethodFilter, MethodRouter};
 use axum::Router as AxumRouter;
 
 use crate::authorize::{AuthorizeRegistry, AuthorizeResource};
 use crate::binding::{extract_param, selector_pairs, BindingRegistry, ModelBinder};
 use crate::handler::{stub_handler, ActionFactory, BoundAction, Handler};
+use crate::host::HostDispatch;
 use crate::metadata::{MiddlewareApply, RouteError};
 use crate::route::{AuthorizeSpec, RouteEntry};
 use crate::router::Router;
@@ -26,12 +27,14 @@ use crate::router::Router;
 impl Router {
     /// Convert into an Axum router, failing on unknown middleware.
     ///
-    /// Iterates domain-first ordering via [`Router::get_routes`]; the first
-    /// route to claim a method+path slot wins, so a domain-constrained route
-    /// shadows an overlapping catch-all instead of triggering an Axum
-    /// "Overlapping method route" panic. Each slot resolves to an explicitly
-    /// bound action, a controller-registry action, or the stub handler, then
-    /// has its declared middleware applied — first-declared outermost.
+    /// Iterates domain-first ordering via [`Router::get_routes`] and groups
+    /// routes by method+path. A slot with domain-constrained routes is served
+    /// by a [`HostDispatch`] that picks the first route whose domain matches
+    /// the request host and falls back to the route without a domain; two
+    /// routes with the same method, path, and domain keep the first. Each
+    /// route resolves to an explicitly bound action, a controller-registry
+    /// action, or the stub handler, then has its declared middleware applied —
+    /// first-declared outermost.
     ///
     /// Slot bookkeeping stays on the Laravel-style [`RouteEntry::path`], while
     /// the string handed to `axum::Router::route` is translated by
@@ -52,16 +55,26 @@ impl Router {
         let authorize_registry = self.authorize_registry;
         let binding_registry = self.binding_registry;
 
-        let mut router = AxumRouter::new();
-        let mut registered: Vec<(String, String)> = Vec::new();
+        let mut slots: Vec<Slot> = Vec::new();
         for entry in entries {
-            let overlaps = registered
+            let index = match slots
                 .iter()
-                .any(|(m, p)| p == &entry.path && m == &entry.method);
-            if overlaps {
+                .position(|slot| slot.path == entry.path && slot.method == entry.method)
+            {
+                Some(index) => index,
+                None => {
+                    slots.push(Slot::new(&entry));
+                    slots.len() - 1
+                }
+            };
+            let slot = &mut slots[index];
+            let taken = match &entry.domain {
+                Some(domain) => slot.domains.iter().any(|(d, _)| d == domain),
+                None => slot.fallback.is_some(),
+            };
+            if taken {
                 continue;
             }
-            registered.push((entry.method.clone(), entry.path.clone()));
             let mut method_router = resolve(&entry, &mut actions, &controller_actions);
             let axum_path = to_axum_path(&entry.path);
             // Authorization runs *innermost* — after the route's middleware
@@ -77,6 +90,18 @@ impl Router {
             method_router =
                 apply_binding(method_router, &entry.path, &axum_path, &binding_registry);
             method_router = apply_middleware(method_router, &entry, &registry)?;
+            match entry.domain {
+                Some(domain) => slots[index].domains.push((domain, method_router)),
+                None => slots[index].fallback = Some(method_router),
+            }
+        }
+        let mut router = AxumRouter::new();
+        for slot in slots {
+            let axum_path = to_axum_path(&slot.path);
+            let method_router = match (slot.domains.is_empty(), slot.fallback) {
+                (true, Some(fallback)) => fallback,
+                (_, fallback) => host_service(&slot.method, slot.domains, fallback),
+            };
             router = router.merge(AxumRouter::new().route(&axum_path, method_router));
         }
         for apply in layers {
@@ -97,6 +122,48 @@ impl Router {
             Err(_) => AxumRouter::new().fallback(|| async { StatusCode::INTERNAL_SERVER_ERROR }),
         }
     }
+}
+
+/// Routes that share one method+path, before they are compiled.
+struct Slot {
+    method: String,
+    path: String,
+    domains: Vec<(String, MethodRouter<()>)>,
+    fallback: Option<MethodRouter<()>>,
+}
+
+impl Slot {
+    fn new(entry: &RouteEntry) -> Self {
+        Self {
+            method: entry.method.clone(),
+            path: entry.path.clone(),
+            domains: Vec::new(),
+            fallback: None,
+        }
+    }
+}
+
+/// Serve a method+path slot that has domain routes through [`HostDispatch`].
+///
+/// The dispatcher is registered for the slot's method only, so other methods
+/// on the same path keep their own routes; an unknown verb answers any method,
+/// mirroring [`Handler::into_method_router`].
+fn host_service(
+    method: &str,
+    domains: Vec<(String, MethodRouter<()>)>,
+    fallback: Option<MethodRouter<()>>,
+) -> MethodRouter<()> {
+    let dispatch = HostDispatch::new(domains, fallback);
+    let filter = match method.to_ascii_uppercase().as_str() {
+        "GET" => MethodFilter::GET,
+        "POST" => MethodFilter::POST,
+        "PUT" => MethodFilter::PUT,
+        "DELETE" => MethodFilter::DELETE,
+        "PATCH" => MethodFilter::PATCH,
+        "OPTIONS" => MethodFilter::OPTIONS,
+        _ => return any_service(dispatch),
+    };
+    on_service(filter, dispatch)
 }
 
 /// Apply a route's declared middleware, first-declared outermost.
