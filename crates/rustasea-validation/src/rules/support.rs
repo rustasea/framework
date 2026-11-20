@@ -132,10 +132,13 @@ pub(crate) fn apply_rule(
             }
         }
         "in_array" | "in" | "strict_in_array" => {
-            let list = parse_list(arg);
+            // Each item is read like a `contains` needle: JSON when it parses
+            // (`1` is a number, `"1"` a string), else the raw text, so a
+            // bare-word list such as `in:admin,editor` allows those strings.
             let allow = Value::Array(
-                list.iter()
-                    .filter_map(|s| serde_json::from_str(s).ok())
+                parse_list(arg)
+                    .iter()
+                    .map(|item| parse_needle(Some(item)))
                     .collect(),
             );
             if in_array_strict(&allow, present) {
