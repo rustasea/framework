@@ -123,15 +123,14 @@ CLI scaffold output tree (see `architecture.md §2` skeleton). No browser UI.
 | F-M0-BOOT-01 | AppBuilder | Done | `Application::configure()` + provider vec |
 | F-M0-BOOT-02 | DAG validator | Done | `depends_on` cycle detection + `BootError::Cycle` |
 | F-M0-BOOT-03 | Runner | Todo | `Runner` trait + HTTP/Queue/Schedule runners |
-| F-M0-BOOT-04 | Shutdown | Partial | `tokio::signal` + drain with timeout |
+| F-M0-BOOT-04 | Shutdown | Done | `tokio::signal` + drain with timeout |
 | F-M0-BOOT-05 | Scaffold | Done | `cargo rustasea new <app>` producing `bootstrap/app.rs` etc. |
 | F-M0-BOOT-06 | Tests | Partial | DAG + shutdown drain + scaffold harness |
 
-> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+> **As-built note (2026-11-18, updated 2026-11-20):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
 >
 > Open items:
 > - `F-M0-BOOT-03` — there is no `Runner` trait or HTTP/Queue/Schedule runner abstraction — only the separate `queue:work` / `schedule:run` commands and the axum serve in `crates/rustasea-app/src/main.rs`.
-> - `F-M0-BOOT-04` — same as `F-M0-CFG-03`: the signal is caught, the timeout is ignored, and the drain is not enforced.
 > - `F-M0-BOOT-06` — the provider DAG and the scaffold harness are tested (`crates/rustasea-foundation/tests/boot_dag.rs`, `crates/rustasea-scaffold/tests/`); there is no shutdown-drain test.
 
 ## 11. Cross-References

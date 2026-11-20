@@ -53,6 +53,14 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Added
 
+- 2026-11-20 - Database, cache, and queue bindings at boot: `rustasea::services`
+  adds `DatabaseServiceProvider` (a lazily connecting `ConnectionResolver`),
+  `CacheServiceProvider` (a `CacheManager`), and `QueueServiceProvider` (the
+  `sync`/`redis` connections and the parsed `QueueConfig`), plus
+  `connect_database_queues` for `database` connections after boot. The runnable
+  app registers them (M0; `feat(rustasea): bind database, cache, and queue
+  services at boot`; `feat(app): register the framework service providers at
+  boot`).
 - 2026-11-18 - Database-backed user provider: `DatabaseUserProvider` implements
   the async `UserProvider` seam over the scaffold `users` table (registration,
   login, password reset, email verification, profile and timezone updates;
@@ -151,6 +159,23 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Changed
 
+- 2026-11-20 - Domain routes match the request host. A route under
+  `Router::domain` previously answered every host and made the catch-all on the
+  same method+path unreachable; a request is now routed by its `Host`, falling
+  back to the route without a domain, and gets `404` when neither applies (M1;
+  `fix(router): match domain routes against the request host`).
+- 2026-11-20 - `in:` / `in_array:` accept bare words: `in:admin,editor`
+  previously rejected every value (M3; `fix(validation): accept bare words in
+  in: and in_array: lists`).
+- 2026-11-20 - The shutdown drain is bounded: after SIGTERM/SIGINT the process
+  exits with status 1 if draining outlives the timeout (30 s through
+  `Application::shutdown`) (M0; `fix(foundation): bound the shutdown drain by
+  its timeout`).
+- 2026-11-20 - `JwtGuard::logout` revokes the token pair and refresh tokens
+  are single-use. Tokens carry a new optional `sid` claim; revocations live in a
+  cache `Store`, per-process memory unless `with_revocation_store` supplies a
+  shared one (M3; `fix(auth): revoke JWT pairs on logout and make refresh
+  tokens single-use`).
 - 2026-11-18 - **Breaking:** `HttpProviderConfig` gains the public field
   `embedding_model`, so downstream struct literals that construct it directly
   must set the field. It is populated from `<PROVIDER>_EMBEDDING_MODEL` (else
