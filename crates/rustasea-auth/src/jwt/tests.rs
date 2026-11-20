@@ -214,3 +214,113 @@ async fn parse_resolves_email_verified_at_from_lookup() {
     assert_eq!(bare_user.email_verified_at, None);
     assert!(!bare_user.is_email_verified());
 }
+
+/// `logout` revokes the presented token's whole pair, from either half.
+#[tokio::test]
+async fn logout_revokes_the_pair() {
+    let guard = test_guard();
+    let id = Uuid::new_v4().to_string();
+
+    let by_access = guard.login_using_id(&id).await.expect("login");
+    guard.logout(&by_access.access_token).await.expect("logout");
+    assert_eq!(
+        guard.parse(&by_access.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert_eq!(
+        guard.refresh(&by_access.refresh_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    // Logging out twice is not an error.
+    guard
+        .logout(&by_access.access_token)
+        .await
+        .expect("second logout");
+
+    let by_refresh = guard.login_using_id(&id).await.expect("login");
+    guard
+        .logout(&by_refresh.refresh_token)
+        .await
+        .expect("logout");
+    assert_eq!(
+        guard.parse(&by_refresh.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+
+    // Other sessions of the same user are untouched.
+    let other = guard.login_using_id(&id).await.expect("login");
+    assert!(guard.parse(&other.access_token).await.is_ok());
+}
+
+/// A refresh token works once; refreshing also retires the old access token.
+#[tokio::test]
+async fn refresh_tokens_are_single_use() {
+    let guard = test_guard();
+    let token = guard
+        .login_using_id(&Uuid::new_v4().to_string())
+        .await
+        .expect("login");
+
+    let rotated = guard
+        .refresh(&token.refresh_token)
+        .await
+        .expect("first refresh");
+    assert_eq!(
+        guard.refresh(&token.refresh_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert_eq!(
+        guard.parse(&token.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert!(guard.parse(&rotated.access_token).await.is_ok());
+}
+
+/// `logout` of an expired token is a no-op; a malformed token is rejected.
+#[tokio::test]
+async fn logout_ignores_expired_and_rejects_malformed_tokens() {
+    let guard = test_guard();
+    let mut claims = JwtClaims::issue(&Uuid::new_v4(), "access", 60, &guard.cfg);
+    claims.exp = (now_secs() - 120) as usize;
+    let expired = guard.sign(&claims).expect("sign");
+    assert_eq!(guard.logout(&expired).await, Ok(()));
+    assert_eq!(guard.logout("a.b.c").await, Err(AuthError::InvalidToken));
+}
+
+/// A token issued before `sid` existed is revoked on its own.
+#[tokio::test]
+async fn tokens_without_a_session_id_are_revoked_individually() {
+    let guard = test_guard();
+    let user = Uuid::new_v4();
+    let first = guard
+        .sign(&JwtClaims::issue(&user, "access", 600, &guard.cfg))
+        .expect("sign");
+    let mut later = JwtClaims::issue(&user, "access", 600, &guard.cfg);
+    later.iat -= 1;
+    let second = guard.sign(&later).expect("sign");
+
+    guard.logout(&first).await.expect("logout");
+    assert_eq!(guard.parse(&first).await, Err(AuthError::InvalidToken));
+    assert!(guard.parse(&second).await.is_ok());
+}
+
+/// Revocations live in the guard's store: a shared store carries them across
+/// guards (processes); the default per-guard memory store does not.
+#[tokio::test]
+async fn revocations_are_shared_through_the_store() {
+    let shared: Arc<dyn Store> = Arc::new(MemoryStore::new());
+    let first = test_guard().with_revocation_store(Arc::clone(&shared));
+    let second = test_guard().with_revocation_store(shared);
+    let isolated = test_guard();
+
+    let token = first
+        .login_using_id(&Uuid::new_v4().to_string())
+        .await
+        .expect("login");
+    first.logout(&token.access_token).await.expect("logout");
+    assert_eq!(
+        second.parse(&token.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert!(isolated.parse(&token.access_token).await.is_ok());
+}
