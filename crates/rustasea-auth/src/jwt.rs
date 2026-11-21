@@ -160,10 +160,26 @@ impl JwtGuard {
 
     /// Decode and fully validate a token (signature, exp, iss, aud).
     fn decode_claims(&self, token: &str) -> Result<JwtClaims> {
+        self.decode_claims_with_exp(token, true)
+    }
+
+    /// Decode a token with `exp` enforcement disabled, but signature, issuer,
+    /// and audience still validated.
+    ///
+    /// Logout uses this so an access token whose `exp` has passed can still
+    /// release its refresh half: `exp` denies authentication, it does not
+    /// invalidate the session id that the pair shares.
+    fn decode_claims_ignoring_expiry(&self, token: &str) -> Result<JwtClaims> {
+        self.decode_claims_with_exp(token, false)
+    }
+
+    /// Shared decoder; `enforce_exp` selects the validation policy.
+    fn decode_claims_with_exp(&self, token: &str, enforce_exp: bool) -> Result<JwtClaims> {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.set_issuer(&[&self.cfg.issuer]);
         validation.set_audience(&[&self.cfg.audience]);
         validation.leeway = 0;
+        validation.validate_exp = enforce_exp;
         // A secret the HMAC key constructor rejects can verify no token.
         let key = DecodingKey::from_secret(self.cfg.secret.as_bytes())
             .map_err(|_| AuthError::InvalidToken)?;
@@ -301,12 +317,10 @@ impl Guard for JwtGuard {
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
             self.cfg.validate()?;
-            let claims = match self.decode_claims(token) {
-                Ok(claims) => claims,
-                // An expired token can no longer be used; nothing to revoke.
-                Err(AuthError::ExpiredToken) => return Ok(()),
-                Err(error) => return Err(error),
-            };
+            // `exp` is not enforced here: an expired access token can no longer
+            // authenticate, but its refresh half may still be live, so the pair
+            // must still be revoked. `parse`/`refresh` keep enforcing `exp`.
+            let claims = self.decode_claims_ignoring_expiry(token)?;
             let refresh_ttl = self.cfg.refresh_ttl_secs;
             revoke::revoke(self.revocations.as_ref(), &claims, token, refresh_ttl).await
         })

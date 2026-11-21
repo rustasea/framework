@@ -33,6 +33,15 @@ fn key(claims: &JwtClaims, token: &str) -> String {
     }
 }
 
+/// Extra retention beyond the latest possible token expiry.
+///
+/// `issue_pair` reads the clock once per half, so the two halves can carry
+/// `iat` values a second apart; anchoring the revocation from one half and
+/// applying no margin could let the entry lapse before the other half. The
+/// margin makes the entry outlive every token it covers regardless of which
+/// half it was derived from.
+const EXPIRY_MARGIN_SECS: u64 = 60;
+
 /// How long the revocation must be kept: until no token it covers can still
 /// verify. A pair lives until its refresh token expires (`iat` + refresh TTL).
 fn ttl(claims: &JwtClaims, refresh_ttl_secs: u64) -> Duration {
@@ -40,7 +49,8 @@ fn ttl(claims: &JwtClaims, refresh_ttl_secs: u64) -> Duration {
         claims.exp as u64
     } else {
         (claims.iat as u64 + refresh_ttl_secs).max(claims.exp as u64)
-    };
+    }
+    .saturating_add(EXPIRY_MARGIN_SECS);
     let now = Utc::now().timestamp().max(0) as u64;
     Duration::from_secs(until.saturating_sub(now).max(1))
 }
