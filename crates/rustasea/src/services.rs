@@ -14,8 +14,8 @@
 //!
 //! Registering a `database` queue connection needs a live pool, which cannot
 //! be opened inside a synchronous provider. After boot, inside the runtime,
-//! call [`connect_database_queues`] to resolve the pool through the bound
-//! resolver and register those connections.
+//! call [`connect_database_queues`] to resolve each connection's pool through
+//! the bound resolver and register those connections.
 //!
 //! Each provider reads the boot-time [`crate::ConfigLoader`]. A missing table
 //! falls back to the component's defaults; a table that does not parse leaves
@@ -132,10 +132,15 @@ impl ServiceProvider for QueueServiceProvider {
 /// nothing to do: no queue config or resolver is bound, or no connection uses
 /// the `database` driver.
 ///
+/// Each `database` connection resolves the pool named by its `connection`
+/// field, so two connections backed by different `[database.connections.*]`
+/// entries get their own pools. A connection that names none falls back to the
+/// default database connection, as before.
+///
 /// # Errors
 ///
-/// A [`queue::QueueError`] when the default database connection cannot be
-/// opened or the drivers cannot be registered.
+/// A [`queue::QueueError`] when a named database connection cannot be opened
+/// or the drivers cannot be registered.
 pub async fn connect_database_queues(app: &Application) -> queue::Result<bool> {
     let (Some(config), Some(resolver)) = (queue_config(app), database(app)) else {
         return Ok(false);
@@ -143,7 +148,21 @@ pub async fn connect_database_queues(app: &Application) -> queue::Result<bool> {
     if !config.connections.values().any(|c| c.is_database()) {
         return Ok(false);
     }
-    let pool = resolver.resolve(None).await?;
-    queue::register_from_config(&config, Some(pool))?;
+    // Register the pool-free drivers (`sync`, `redis`) and the default
+    // connection first; the `database` drivers are installed below with a pool
+    // resolved per declared connection.
+    queue::register_from_config(&config, None)?;
+    for (name, connection) in &config.connections {
+        if !connection.is_database() {
+            continue;
+        }
+        let pool = resolver.resolve(connection.connection.as_deref()).await?;
+        let driver = queue::DatabaseDriver::with_tables(
+            pool,
+            config.jobs_table(connection),
+            config.failed_table(),
+        );
+        queue::Queue::register_driver(name.clone(), Arc::new(driver));
+    }
     Ok(true)
 }

@@ -60,7 +60,7 @@ async fn configured_services_are_bound_and_database_queues_connect() {
             ("cache.toml", "[cache]\ndefault = \"memory\"\n\n[cache.stores.memory]\ndriver = \"memory\"\n".to_string()),
             (
                 "queue.toml",
-                "[queue]\ndefault = \"database\"\n\n[queue.connections.sync]\ndriver = \"sync\"\n\n[queue.connections.database]\ndriver = \"database\"\ntable = \"jobs\"\n".to_string(),
+                "[queue]\ndefault = \"database\"\n\n[queue.connections.sync]\ndriver = \"sync\"\n\n[queue.connections.services_local]\ndriver = \"sync\"\n\n[queue.connections.database]\ndriver = \"database\"\ntable = \"jobs\"\n".to_string(),
             ),
         ],
     );
@@ -74,8 +74,10 @@ async fn configured_services_are_bound_and_database_queues_connect() {
         "database"
     );
 
-    // `sync` is registered at boot; `database` only once a pool is connected.
-    assert!(rustasea::queue::Queue::driver("sync").is_ok());
+    // `services_local` names a non-default `sync` connection: only the provider
+    // registering the parsed config installs it (the registry seeds plain
+    // `sync` on its own), and `database` appears only once a pool is connected.
+    assert!(rustasea::queue::Queue::driver("services_local").is_ok());
     assert!(rustasea::queue::Queue::driver("database").is_err());
     assert!(connect_database_queues(&app).await.expect("connect"));
     assert!(rustasea::queue::Queue::driver("database").is_ok());
