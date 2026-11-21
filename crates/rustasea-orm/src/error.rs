@@ -102,10 +102,34 @@ pub enum OrmError {
 }
 
 impl From<sqlx::Error> for OrmError {
-    /// Map a raw `sqlx` failure onto the ORM's storage error.
+    /// Map a raw `sqlx` failure onto the ORM's storage error, or onto
+    /// [`OrmError::MissingTable`] when the driver reports an unknown table.
     fn from(error: sqlx::Error) -> Self {
+        if let sqlx::Error::Database(database) = &error {
+            if let Some(table) = missing_table(database.message()) {
+                return OrmError::MissingTable { table };
+            }
+        }
         OrmError::Storage(error.to_string())
     }
+}
+
+/// The table a driver error message reports as missing, without its schema.
+///
+/// SQLite: `no such table: t`; Postgres: `relation "t" does not exist`; MySQL:
+/// `Table 'db.t' doesn't exist`.
+fn missing_table(message: &str) -> Option<String> {
+    let named = if let Some(rest) = message.strip_prefix("no such table: ") {
+        rest.trim()
+    } else if message.starts_with("relation \"") && message.ends_with("\" does not exist") {
+        message.split('"').nth(1)?
+    } else if message.starts_with("Table '") && message.ends_with("' doesn't exist") {
+        message.split('\'').nth(1)?
+    } else {
+        return None;
+    };
+    let table = named.rsplit('.').next().unwrap_or(named);
+    (!table.is_empty()).then(|| table.to_string())
 }
 
 /// Named-connection resolution errors raised by [`crate::connections`].
@@ -211,4 +235,31 @@ pub enum SchemaError {
         /// The repeated column name.
         column: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::missing_table;
+
+    #[test]
+    fn missing_table_names_are_read_from_each_driver() {
+        assert_eq!(
+            missing_table("no such table: widgets").as_deref(),
+            Some("widgets")
+        );
+        assert_eq!(
+            missing_table("no such table: main.widgets").as_deref(),
+            Some("widgets")
+        );
+        assert_eq!(
+            missing_table("relation \"public.widgets\" does not exist").as_deref(),
+            Some("widgets")
+        );
+        assert_eq!(
+            missing_table("Table 'app.widgets' doesn't exist").as_deref(),
+            Some("widgets")
+        );
+        assert_eq!(missing_table("near \"SELEC\": syntax error"), None);
+        assert_eq!(missing_table("no such column: name"), None);
+    }
 }
