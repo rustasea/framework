@@ -15,6 +15,7 @@ mod config;
 mod core;
 mod database;
 mod docker;
+mod entry;
 mod inertia;
 mod inertia_react;
 mod inertia_svelte;
