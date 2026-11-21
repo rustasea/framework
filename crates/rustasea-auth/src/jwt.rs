@@ -1,13 +1,17 @@
 /// JWT guard — HS256 signed claims via `jsonwebtoken`.
 ///
 /// `login` verifies the password through the injected `PasswordVerifier`,
-/// then signs an access/refresh pair. `parse` decodes with `exp` validation.
-/// Rotation (`refresh`) re-signs from a still-valid token's subject without
-/// requiring the password again.
+/// then signs an access/refresh pair sharing one session id (`sid`). `parse`
+/// decodes with `exp` validation and rejects revoked tokens. Rotation
+/// (`refresh`) re-signs from a still-valid refresh token's subject without
+/// requiring the password again and revokes the old pair, so a refresh token
+/// works once. `logout` revokes the presented token's pair.
 use std::sync::Arc;
 
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use rustasea_cache::memory::MemoryStore;
+use rustasea_cache::store::Store;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -90,6 +94,10 @@ pub struct JwtClaims {
     pub aud: String,
     /// Token purpose: `access` or `refresh`.
     pub typ: String,
+    /// Session id shared by an access/refresh pair; revoking it revokes both.
+    /// Empty on tokens issued before it existed.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub sid: String,
 }
 
 impl JwtClaims {
@@ -103,6 +111,7 @@ impl JwtClaims {
             iss: cfg.issuer.clone(),
             aud: cfg.audience.clone(),
             typ: purpose.to_string(),
+            sid: String::new(),
         }
     }
 }
@@ -113,6 +122,8 @@ pub struct JwtGuard {
     verifier: Arc<dyn PasswordVerifier>,
     /// Credential lookup (fail-closed StaticLookup until DB wiring).
     lookup: Arc<dyn crate::users::UserLookup>,
+    /// Revoked token pairs (per-process memory unless a shared store is set).
+    revocations: Arc<dyn Store>,
 }
 
 impl JwtGuard {
@@ -122,7 +133,15 @@ impl JwtGuard {
             cfg,
             verifier,
             lookup: Arc::new(crate::users::StaticLookup),
+            revocations: Arc::new(MemoryStore::new()),
         }
+    }
+
+    /// Record revocations in `store`, e.g. a Redis store shared by every
+    /// process, so a logout in one process is honoured by all of them.
+    pub fn with_revocation_store(mut self, store: Arc<dyn Store>) -> Self {
+        self.revocations = store;
+        self
     }
 
     /// Attach a credential lookup (database-backed at boot).
@@ -141,10 +160,26 @@ impl JwtGuard {
 
     /// Decode and fully validate a token (signature, exp, iss, aud).
     fn decode_claims(&self, token: &str) -> Result<JwtClaims> {
+        self.decode_claims_with_exp(token, true)
+    }
+
+    /// Decode a token with `exp` enforcement disabled, but signature, issuer,
+    /// and audience still validated.
+    ///
+    /// Logout uses this so an access token whose `exp` has passed can still
+    /// release its refresh half: `exp` denies authentication, it does not
+    /// invalidate the session id that the pair shares.
+    fn decode_claims_ignoring_expiry(&self, token: &str) -> Result<JwtClaims> {
+        self.decode_claims_with_exp(token, false)
+    }
+
+    /// Shared decoder; `enforce_exp` selects the validation policy.
+    fn decode_claims_with_exp(&self, token: &str, enforce_exp: bool) -> Result<JwtClaims> {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.set_issuer(&[&self.cfg.issuer]);
         validation.set_audience(&[&self.cfg.audience]);
         validation.leeway = 0;
+        validation.validate_exp = enforce_exp;
         // A secret the HMAC key constructor rejects can verify no token.
         let key = DecodingKey::from_secret(self.cfg.secret.as_bytes())
             .map_err(|_| AuthError::InvalidToken)?;
@@ -156,10 +191,17 @@ impl JwtGuard {
             })
     }
 
-    /// Pair of signed claims for `user_id`.
+    /// Pair of signed claims for `user_id`, sharing a fresh session id.
     fn issue_pair(&self, user_id: &Uuid) -> Result<Token> {
-        let access = JwtClaims::issue(user_id, "access", self.cfg.access_ttl_secs, &self.cfg);
-        let refresh = JwtClaims::issue(user_id, "refresh", self.cfg.refresh_ttl_secs, &self.cfg);
+        let sid = Uuid::new_v4().to_string();
+        let access = JwtClaims {
+            sid: sid.clone(),
+            ..JwtClaims::issue(user_id, "access", self.cfg.access_ttl_secs, &self.cfg)
+        };
+        let refresh = JwtClaims {
+            sid,
+            ..JwtClaims::issue(user_id, "refresh", self.cfg.refresh_ttl_secs, &self.cfg)
+        };
         Ok(Token::bearer(
             self.sign(&access)?,
             self.sign(&refresh)?,
@@ -221,6 +263,7 @@ impl Guard for JwtGuard {
             if claims.typ != "access" {
                 return Err(AuthError::InvalidToken);
             }
+            revoke::ensure_active(self.revocations.as_ref(), &claims, token).await?;
             // Verification state is resolved fresh from the lookup on every
             // parse rather than baked into the signed claims: a JWT lives for
             // its whole `exp` window, so an `email_verified_at` claim would go
@@ -260,18 +303,26 @@ impl Guard for JwtGuard {
                 return Err(AuthError::InvalidToken);
             }
             let parsed = Uuid::parse_str(&claims.sub).map_err(|_| AuthError::InvalidToken)?;
+            // Single use: the old pair is revoked atomically before the new one
+            // is issued, so a replayed refresh token is rejected.
+            let refresh_ttl = self.cfg.refresh_ttl_secs;
+            revoke::claim_once(self.revocations.as_ref(), &claims, token, refresh_ttl).await?;
             self.issue_pair(&parsed)
         })
     }
 
     fn logout<'a>(
         &'a self,
-        _token: &'a str,
+        token: &'a str,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
         Box::pin(async move {
-            // Stateless JWT: revocation is delegated to the deny-list/session
-            // store (S05 queue/cache milestone) — no-op until then.
-            Ok(())
+            self.cfg.validate()?;
+            // `exp` is not enforced here: an expired access token can no longer
+            // authenticate, but its refresh half may still be live, so the pair
+            // must still be revoked. `parse`/`refresh` keep enforcing `exp`.
+            let claims = self.decode_claims_ignoring_expiry(token)?;
+            let refresh_ttl = self.cfg.refresh_ttl_secs;
+            revoke::revoke(self.revocations.as_ref(), &claims, token, refresh_ttl).await
         })
     }
 
@@ -293,6 +344,8 @@ impl Guard for JwtGuard {
         Box::pin(async move { Ok(None) })
     }
 }
+
+mod revoke;
 
 #[cfg(test)]
 mod tests;

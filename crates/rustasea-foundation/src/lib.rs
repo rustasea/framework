@@ -485,7 +485,7 @@ impl Application {
         self.booted
     }
 
-    /// Graceful shutdown stub.
+    /// Wait for SIGTERM/SIGINT; the drain that follows has 30 s before exit.
     pub async fn shutdown(self) {
         shutdown::graceful(Duration::from_secs(30)).await;
     }

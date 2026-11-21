@@ -34,6 +34,24 @@ fn strict_in_rule_rejects_string_int() {
     assert!(bag.get("identifier").iter().any(|e| e.code == "in_array"));
 }
 
+/// `in:` accepts a bare-word list, still comparing type and value strictly.
+#[test]
+fn in_rule_accepts_bare_words() {
+    let rules = Rules::new().field("role", "in:admin,editor").clone();
+    assert!(rules.validate(&json!({ "role": "admin" })).is_ok());
+    assert!(rules.validate(&json!({ "role": "editor" })).is_ok());
+    let bag = rules.validate(&json!({ "role": "viewer" })).unwrap_err();
+    assert!(bag.get("role").iter().any(|e| e.code == "in_array"));
+    let bag = rules.validate(&json!({ "role": "Admin" })).unwrap_err();
+    assert!(bag.get("role").iter().any(|e| e.code == "in_array"));
+
+    // Quoted numbers stay strings; bare numbers stay numbers.
+    let rules = Rules::new().field("code", "in:\"1\",two").clone();
+    assert!(rules.validate(&json!({ "code": "1" })).is_ok());
+    assert!(rules.validate(&json!({ "code": "two" })).is_ok());
+    assert!(rules.validate(&json!({ "code": 1 })).is_err());
+}
+
 /// Optional fields skip rules when absent; required still fires.
 #[test]
 fn optional_absent_fields_pass() {

@@ -11,6 +11,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use rustasea::foundation::shutdown::{graceful, DEFAULT_DRAIN_TIMEOUT};
 use rustasea::http::AppState;
 
 mod app;
@@ -26,6 +27,14 @@ async fn main() -> anyhow::Result<()> {
     // Build + boot the foundation application (providers, bindings) from
     // `bootstrap/app.rs` — the README-mandated `Application::configure` home.
     let app = bootstrap::app::configure()?;
+
+    // `database` queue connections need a live pool, which providers cannot
+    // open; register them now through the bound connection resolver.
+    match rustasea::services::connect_database_queues(&app).await {
+        Ok(true) => println!("queue: database connections registered"),
+        Ok(false) => {}
+        Err(error) => eprintln!("queue: database connections not registered: {error}"),
+    }
 
     // Read users from the database when auth is configured for it and the
     // `users` table exists; otherwise the fail-closed provider stays in place.
@@ -57,7 +66,14 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("RustaSea dev server listening on http://{addr}");
 
-    serve(listener, router, app.shutdown()).await?;
+    // Hold the guard for the whole drain: dropping it aborts the deadline
+    // timer, so a drain that finishes inside the timeout is never force-exited
+    // with status 1 when the runtime outlives it.
+    let shutdown = graceful(DEFAULT_DRAIN_TIMEOUT);
+    let guard = shutdown.guard();
+    let served = serve(listener, router, shutdown).await;
+    drop(guard);
+    served?;
     Ok(())
 }
 

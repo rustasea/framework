@@ -16,6 +16,7 @@ mod authorize;
 mod binding;
 mod dispatch;
 mod handler;
+mod host;
 mod metadata;
 mod redirect;
 mod resource;

@@ -1,5 +1,10 @@
 //! Unit tests for the HS256 JWT guard.
 
+use std::time::Duration;
+
+use async_trait::async_trait;
+use rustasea_cache::error::CacheError;
+
 use super::*;
 
 /// Seconds since the UNIX epoch, used to force token expiry in tests.
@@ -213,4 +218,233 @@ async fn parse_resolves_email_verified_at_from_lookup() {
     let bare_user = bare.parse(&bare_token.access_token).await.expect("parse");
     assert_eq!(bare_user.email_verified_at, None);
     assert!(!bare_user.is_email_verified());
+}
+
+/// `logout` revokes the presented token's whole pair, from either half.
+#[tokio::test]
+async fn logout_revokes_the_pair() {
+    let guard = test_guard();
+    let id = Uuid::new_v4().to_string();
+
+    let by_access = guard.login_using_id(&id).await.expect("login");
+    guard.logout(&by_access.access_token).await.expect("logout");
+    assert_eq!(
+        guard.parse(&by_access.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert_eq!(
+        guard.refresh(&by_access.refresh_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    // Logging out twice is not an error.
+    guard
+        .logout(&by_access.access_token)
+        .await
+        .expect("second logout");
+
+    let by_refresh = guard.login_using_id(&id).await.expect("login");
+    guard
+        .logout(&by_refresh.refresh_token)
+        .await
+        .expect("logout");
+    assert_eq!(
+        guard.parse(&by_refresh.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+
+    // Other sessions of the same user are untouched.
+    let other = guard.login_using_id(&id).await.expect("login");
+    assert!(guard.parse(&other.access_token).await.is_ok());
+}
+
+/// A refresh token works once; refreshing also retires the old access token.
+#[tokio::test]
+async fn refresh_tokens_are_single_use() {
+    let guard = test_guard();
+    let token = guard
+        .login_using_id(&Uuid::new_v4().to_string())
+        .await
+        .expect("login");
+
+    let rotated = guard
+        .refresh(&token.refresh_token)
+        .await
+        .expect("first refresh");
+    assert_eq!(
+        guard.refresh(&token.refresh_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert_eq!(
+        guard.parse(&token.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert!(guard.parse(&rotated.access_token).await.is_ok());
+}
+
+/// `logout` of an expired access token still revokes its live refresh half;
+/// a malformed token is rejected.
+#[tokio::test]
+async fn logout_revokes_the_pair_even_when_the_access_token_is_expired() {
+    let guard = test_guard();
+    let user = Uuid::new_v4();
+    let sid = Uuid::new_v4().to_string();
+
+    // A pair whose access half has expired while the refresh half is live.
+    let refresh = JwtClaims {
+        sid: sid.clone(),
+        ..JwtClaims::issue(&user, "refresh", 600, &guard.cfg)
+    };
+    let mut expired_access = JwtClaims::issue(&user, "access", 60, &guard.cfg);
+    expired_access.sid = sid.clone();
+    expired_access.exp = (now_secs() - 120) as usize;
+    // A fresh access token for the same session id (future `exp`): proves the
+    // revocation is keyed on the sid, not on the specific presented token.
+    let live_access = JwtClaims {
+        sid: sid.clone(),
+        ..JwtClaims::issue(&user, "access", 600, &guard.cfg)
+    };
+
+    let expired = guard.sign(&expired_access).expect("sign expired");
+    let refresh = guard.sign(&refresh).expect("sign refresh");
+    let live = guard.sign(&live_access).expect("sign live");
+
+    // The presented half can no longer authenticate...
+    assert_eq!(guard.parse(&expired).await, Err(AuthError::ExpiredToken));
+    // ...but logging it out must still revoke the whole pair.
+    guard
+        .logout(&expired)
+        .await
+        .expect("logout of an expired token");
+    assert_eq!(guard.refresh(&refresh).await, Err(AuthError::InvalidToken));
+    assert_eq!(guard.parse(&live).await, Err(AuthError::InvalidToken));
+
+    assert_eq!(guard.logout("a.b.c").await, Err(AuthError::InvalidToken));
+}
+
+/// A token issued before `sid` existed is revoked on its own.
+#[tokio::test]
+async fn tokens_without_a_session_id_are_revoked_individually() {
+    let guard = test_guard();
+    let user = Uuid::new_v4();
+    let first = guard
+        .sign(&JwtClaims::issue(&user, "access", 600, &guard.cfg))
+        .expect("sign");
+    let mut later = JwtClaims::issue(&user, "access", 600, &guard.cfg);
+    later.iat -= 1;
+    let second = guard.sign(&later).expect("sign");
+
+    guard.logout(&first).await.expect("logout");
+    assert_eq!(guard.parse(&first).await, Err(AuthError::InvalidToken));
+    assert!(guard.parse(&second).await.is_ok());
+}
+
+/// A store whose reads and writes always fail, standing in for an unreachable
+/// backend. Every method returns `CacheError::StoreUnavailable`.
+struct FailingStore;
+
+#[async_trait]
+impl Store for FailingStore {
+    async fn get(&self, _key: &str) -> rustasea_cache::error::Result<Option<Vec<u8>>> {
+        Err(CacheError::StoreUnavailable("test outage".into()))
+    }
+
+    async fn put(
+        &self,
+        _key: &str,
+        _value: Vec<u8>,
+        _ttl: Duration,
+    ) -> rustasea_cache::error::Result<()> {
+        Err(CacheError::StoreUnavailable("test outage".into()))
+    }
+
+    async fn put_if_absent(
+        &self,
+        _key: &str,
+        _value: Vec<u8>,
+        _ttl: Duration,
+    ) -> rustasea_cache::error::Result<bool> {
+        Err(CacheError::StoreUnavailable("test outage".into()))
+    }
+
+    async fn compare_and_delete(
+        &self,
+        _key: &str,
+        _expected: &[u8],
+    ) -> rustasea_cache::error::Result<bool> {
+        Err(CacheError::StoreUnavailable("test outage".into()))
+    }
+
+    async fn forget(&self, _key: &str) -> rustasea_cache::error::Result<()> {
+        Err(CacheError::StoreUnavailable("test outage".into()))
+    }
+
+    async fn flush(&self) -> rustasea_cache::error::Result<()> {
+        Err(CacheError::StoreUnavailable("test outage".into()))
+    }
+
+    async fn increment(&self, _key: &str, _n: i64) -> rustasea_cache::error::Result<i64> {
+        Err(CacheError::StoreUnavailable("test outage".into()))
+    }
+}
+
+/// Two concurrent refreshes of the same token: the atomic `put_if_absent`
+/// lets exactly one win, the other sees the token as already used.
+#[tokio::test]
+async fn concurrent_refresh_keeps_a_refresh_token_single_use() {
+    let guard = test_guard();
+    let token = guard
+        .login_using_id(&Uuid::new_v4().to_string())
+        .await
+        .expect("login");
+
+    let (first, second) = tokio::join!(
+        guard.refresh(&token.refresh_token),
+        guard.refresh(&token.refresh_token)
+    );
+
+    // Exactly one rotation succeeds; the concurrent loser is rejected.
+    assert!(
+        matches!(
+            (&first, &second),
+            (Ok(_), Err(AuthError::InvalidToken)) | (Err(AuthError::InvalidToken), Ok(_))
+        ),
+        "expected one success and one InvalidToken, got first={first:?}, second={second:?}"
+    );
+}
+
+/// An unreadable revocation store fails closed: `parse` refuses the token with
+/// `StoreUnavailable` instead of letting it through.
+#[tokio::test]
+async fn parse_fails_closed_when_the_revocation_store_errors() {
+    let guard = test_guard().with_revocation_store(Arc::new(FailingStore));
+    let token = guard
+        .login_using_id(&Uuid::new_v4().to_string())
+        .await
+        .expect("login");
+
+    assert_eq!(
+        guard.parse(&token.access_token).await,
+        Err(AuthError::StoreUnavailable)
+    );
+}
+
+/// Revocations live in the guard's store: a shared store carries them across
+/// guards (processes); the default per-guard memory store does not.
+#[tokio::test]
+async fn revocations_are_shared_through_the_store() {
+    let shared: Arc<dyn Store> = Arc::new(MemoryStore::new());
+    let first = test_guard().with_revocation_store(Arc::clone(&shared));
+    let second = test_guard().with_revocation_store(shared);
+    let isolated = test_guard();
+
+    let token = first
+        .login_using_id(&Uuid::new_v4().to_string())
+        .await
+        .expect("login");
+    first.logout(&token.access_token).await.expect("logout");
+    assert_eq!(
+        second.parse(&token.access_token).await,
+        Err(AuthError::InvalidToken)
+    );
+    assert!(isolated.parse(&token.access_token).await.is_ok());
 }

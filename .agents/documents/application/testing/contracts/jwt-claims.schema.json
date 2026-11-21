@@ -8,6 +8,7 @@
     "sub": { "type": "string", "description": "user id" },
     "exp": { "type": "integer", "description": "unix seconds" },
     "iat": { "type": "integer" },
-    "iss": { "type": ["string","null"] }
+    "iss": { "type": ["string","null"] },
+    "sid": { "type": "string", "description": "session id shared by an access/refresh pair; absent on tokens issued before it existed" }
   }
 }

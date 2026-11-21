@@ -252,7 +252,8 @@ async fn route_meta_consumes_attribute_metadata() {
 }
 
 /// Positive: a domain route registered after a catch-all on the same
-/// method+path still dispatches its own action, not the catch-all's.
+/// method+path still dispatches its own action for its host, and the
+/// catch-all keeps answering every other host.
 ///
 /// `get_routes` sorts domain entries first while the bound-action registry
 /// stays in registration order; matching must therefore be by method+path+
@@ -274,9 +275,18 @@ async fn domain_route_dispatches_own_action_when_catch_all_registered_first() {
         .get_action("/home", domain_home);
     let app = router.into_axum_router();
 
-    let (status, body) = call(app, get("/home")).await;
+    let on_domain = Request::builder()
+        .uri("/home")
+        .header("host", "api.example.com")
+        .body(Body::empty())
+        .unwrap();
+    let (status, body) = call(app.clone(), on_domain).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, "domain-home");
+
+    let (status, body) = call(app, get("/home")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "catch-all-home");
 }
 
 /// Negative: an unbound route never consumes an action bound to another route.
