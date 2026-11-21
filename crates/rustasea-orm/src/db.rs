@@ -76,8 +76,9 @@ impl DbPool {
             "sqlite" => Self::connect_sqlite(url, settings).await,
             "postgres" | "postgresql" => Self::connect_postgres(url, settings).await,
             "mysql" => Self::connect_mysql(url, settings).await,
+            // Name only the scheme: the URL may carry credentials.
             other => Err(OrmError::Pool(format!(
-                "invalid database URL `{url}`: unknown scheme `{other}`"
+                "invalid database URL: unknown scheme `{other}`"
             ))),
         }
     }
@@ -300,5 +301,16 @@ mod tests {
             .await
             .unwrap_err();
         assert!(matches!(error, OrmError::Pool(_)), "got {error:?}");
+    }
+
+    /// Verifies an unknown-scheme error names the scheme, not the credentials.
+    #[tokio::test]
+    async fn unknown_scheme_error_omits_the_url() {
+        let error = DbPool::connect("mariadb://user:hunter2@db.internal/app")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("`mariadb`"), "got {error}");
+        assert!(!error.contains("hunter2"), "leaked the password: {error}");
     }
 }
