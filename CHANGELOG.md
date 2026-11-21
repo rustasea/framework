@@ -53,6 +53,10 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Added
 
+- 2026-11-21 - Generated apps register the database, cache, and queue service
+  providers and connect their `database` queue connections after boot, like the
+  runnable app (M0; `feat(scaffold): register the framework service providers
+  in generated apps`).
 - 2026-11-20 - Database, cache, and queue bindings at boot: `rustasea::services`
   adds `DatabaseServiceProvider` (a lazily connecting `ConnectionResolver`),
   `CacheServiceProvider` (a `CacheManager`), and `QueueServiceProvider` (the
@@ -159,6 +163,19 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Changed
 
+- 2026-11-21 - The bound connection resolver honours `DATABASE_URL` (then
+  `DATABASE__URL`), which replaces the default connection as it does for the
+  CLI. The runnable app's database user provider and queue dashboard now open
+  their pools through that resolver instead of their own URL lookup, whose
+  fallback to a top-level `database_url` key is dropped (M0; `fix(rustasea):
+  honour DATABASE_URL in the bound connection resolver`; `refactor(app): open
+  the user provider and queue dashboard pools through the bound resolver`).
+- 2026-11-21 - Review follow-ups merged with #12: host dispatch tries exact
+  domains before `{name}` domains and ignores a trailing dot on the host;
+  `JwtGuard::logout` also revokes the pair when given an expired access token;
+  the shutdown deadline is cancelled by dropping `GracefulShutdown::guard`; and
+  each `database` queue connection opens the database connection it names
+  (M0, M1, M3).
 - 2026-11-20 - Domain routes match the request host. A route under
   `Router::domain` previously answered every host and made the catch-all on the
   same method+path unreachable; a request is now routed by its `Host`, falling
