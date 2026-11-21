@@ -11,6 +11,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use rustasea::foundation::shutdown::{graceful, DEFAULT_DRAIN_TIMEOUT};
 use rustasea::http::AppState;
 
 mod app;
@@ -65,7 +66,14 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("RustaSea dev server listening on http://{addr}");
 
-    serve(listener, router, app.shutdown()).await?;
+    // Hold the guard for the whole drain: dropping it aborts the deadline
+    // timer, so a drain that finishes inside the timeout is never force-exited
+    // with status 1 when the runtime outlives it.
+    let shutdown = graceful(DEFAULT_DRAIN_TIMEOUT);
+    let guard = shutdown.guard();
+    let served = serve(listener, router, shutdown).await;
+    drop(guard);
+    served?;
     Ok(())
 }
 
