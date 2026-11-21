@@ -5,8 +5,10 @@
 //! - [`DatabaseServiceProvider`] binds an [`orm::ConnectionResolver`] built from
 //!   `[database]` under [`DATABASE_KEY`]. It connects lazily, on the first
 //!   [`orm::ConnectionResolver::resolve`], so boot does no I/O. `DATABASE_URL`
-//!   (or `DATABASE__URL`) replaces the default connection, as it does for the
-//!   CLI.
+//!   (or `DATABASE__URL`) replaces the default connection wholesale, as it does
+//!   for the CLI: the pool settings carry over, but the connection's `read`,
+//!   `write`, and `charset` are not carried forward. The override still applies
+//!   when the `[database]` table fails to parse.
 //! - [`CacheServiceProvider`] binds a [`cache::CacheManager`] built from
 //!   `[cache]` under [`CACHE_KEY`].
 //! - [`QueueServiceProvider`] registers the `[queue]` connections that need no
@@ -79,7 +81,25 @@ impl ServiceProvider for DatabaseServiceProvider {
                 let resolver = orm::ConnectionResolver::new(config);
                 app.container.instance(DATABASE_KEY, Arc::new(resolver));
             }
-            Err(error) => eprintln!("database: invalid [database] config, not bound: {error}"),
+            Err(error) => {
+                // A malformed `[database]` table must not hide an explicit URL:
+                // the environment outranks config, matching the CLI. Bind from
+                // an empty config so `DATABASE_URL` still takes effect.
+                match database_url_override() {
+                    Some(url) => {
+                        eprintln!(
+                            "database: invalid [database] config, using DATABASE_URL: {error}"
+                        );
+                        let mut config = orm::DatabaseConfig::default();
+                        override_default_connection(&mut config, url);
+                        let resolver = orm::ConnectionResolver::new(config);
+                        app.container.instance(DATABASE_KEY, Arc::new(resolver));
+                    }
+                    None => {
+                        eprintln!("database: invalid [database] config, not bound: {error}")
+                    }
+                }
+            }
         }
     }
 }
@@ -95,6 +115,11 @@ fn database_url_override() -> Option<String> {
 
 /// Point the default connection (created if absent) at `url`, keeping the
 /// other named connections and the pool settings.
+///
+/// The default connection is replaced wholesale: `driver` comes from the URL
+/// scheme and `url` from `url`, while a configured `read`, `write`, or
+/// `charset` on that connection is discarded, because the replacement is built
+/// from an empty `orm::ConnectionConfig`.
 fn override_default_connection(config: &mut orm::DatabaseConfig, url: String) {
     let name = config.default_name().unwrap_or("default").to_string();
     let pool = config
