@@ -1,7 +1,8 @@
 //! M2 SQL-shape helpers — model scope entry points, insert/upsert builders and
 //! raw-fragment emission used by the model helpers.
 //!
-//! Everything here emits SQL text; execution is wired by the driver crate.
+//! Everything here emits SQL text, except [`InsertBuilder::insert_or_ignore`],
+//! which runs the insert on a pool.
 
 use crate::builder::{QueryBuilder, SqlFragment};
 use crate::error::{OrmError, Result};
@@ -96,17 +97,46 @@ impl InsertBuilder {
         ))
     }
 
+    /// Emit `INSERT OR IGNORE INTO …` (SQLite insertOrIgnore).
+    pub fn or_ignore_sql(&self) -> Result<String> {
+        Ok(self
+            .to_sql()?
+            .replacen("INSERT INTO", "INSERT OR IGNORE INTO", 1))
+    }
+
     /// Emit the dialect-specific insert-or-ignore shape (`saveOrIgnore`).
     ///
     /// Postgres uses `ON CONFLICT (id) DO NOTHING RETURNING id`, MySQL uses
-    /// `INSERT IGNORE`; other dialects fall back to a plain INSERT so the SQL
-    /// stays valid on drivers without conflict guards.
+    /// `INSERT IGNORE`, and SQLite uses `INSERT OR IGNORE`; an unknown dialect
+    /// gets a plain INSERT.
     pub fn save_or_ignore_sql(&self, dialect: &str) -> Result<String> {
         match dialect {
             "postgres" => self.on_conflict_returning_sql(&["id"]),
             "mysql" => self.ignore_sql(),
+            "sqlite" => self.or_ignore_sql(),
             _ => self.to_sql(),
         }
+    }
+
+    /// Run the insert on `pool`, skipping the row when it would violate a
+    /// primary-key or unique constraint (Laravel `insertOrIgnore`).
+    ///
+    /// The statement follows the pool's runtime dialect: `INSERT OR IGNORE`
+    /// (SQLite), `INSERT IGNORE` (MySQL), or `ON CONFLICT DO NOTHING` with no
+    /// conflict target (Postgres), so a conflict on any unique column is skipped
+    /// on every driver. Returns `true` when the row was inserted.
+    ///
+    /// # Errors
+    ///
+    /// [`OrmError::InvalidState`] for a builder with no columns, or the driver's
+    /// error for any failure other than an ignored conflict.
+    pub async fn insert_or_ignore(&self, pool: &crate::db::DbPool) -> Result<bool> {
+        let sql = match pool.dialect() {
+            "postgres" => format!("{} ON CONFLICT DO NOTHING", self.to_sql()?),
+            "mysql" => self.ignore_sql()?,
+            _ => self.or_ignore_sql()?,
+        };
+        Ok(pool.execute_bind(&sql, &self.values).await? > 0)
     }
 }
 
@@ -202,6 +232,7 @@ impl ModelScopes {
         match dialect {
             "postgres" => builder.on_conflict_returning_sql(&["id"]),
             "mysql" => builder.ignore_sql(),
+            "sqlite" => builder.or_ignore_sql(),
             _ => Ok(base),
         }
     }
@@ -320,6 +351,13 @@ mod tests {
             .save_or_ignore_sql("mysql")
             .unwrap()
             .starts_with("INSERT IGNORE INTO"));
-        assert_eq!(b.save_or_ignore_sql("sqlite").unwrap(), b.to_sql().unwrap());
+        assert_eq!(
+            b.save_or_ignore_sql("sqlite").unwrap(),
+            "INSERT OR IGNORE INTO users (email) VALUES ($1)"
+        );
+        assert_eq!(
+            b.save_or_ignore_sql("unknown").unwrap(),
+            b.to_sql().unwrap()
+        );
     }
 }
