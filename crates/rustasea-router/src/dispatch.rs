@@ -29,12 +29,13 @@ impl Router {
     ///
     /// Iterates domain-first ordering via [`Router::get_routes`] and groups
     /// routes by method+path. A slot with domain-constrained routes is served
-    /// by a [`HostDispatch`] that picks the first route whose domain matches
-    /// the request host and falls back to the route without a domain; two
-    /// routes with the same method, path, and domain keep the first. Each
-    /// route resolves to an explicitly bound action, a controller-registry
-    /// action, or the stub handler, then has its declared middleware applied —
-    /// first-declared outermost.
+    /// by a [`HostDispatch`], which prefers an exact domain pattern over any
+    /// placeholder pattern, then falls back to the route without a domain; two
+    /// routes with the same method, path, and domain keep the first. Domain
+    /// patterns are case-folded to ASCII lowercase so patterns differing only
+    /// in case dedup to a single route. Each route resolves to an explicitly
+    /// bound action, a controller-registry action, or the stub handler, then
+    /// has its declared middleware applied — first-declared outermost.
     ///
     /// Slot bookkeeping stays on the Laravel-style [`RouteEntry::path`], while
     /// the string handed to `axum::Router::route` is translated by
@@ -57,6 +58,12 @@ impl Router {
 
         let mut slots: Vec<Slot> = Vec::new();
         for entry in entries {
+            // Domain patterns are matched case-insensitively, so fold them to
+            // ASCII lowercase here: `API.example.com` and `api.example.com`
+            // then dedup to one route instead of racing for the same host.
+            // Only the pattern is folded — captured placeholder values and the
+            // host seen by handlers are untouched.
+            let domain = entry.domain.as_deref().map(str::to_ascii_lowercase);
             let index = match slots
                 .iter()
                 .position(|slot| slot.path == entry.path && slot.method == entry.method)
@@ -68,7 +75,7 @@ impl Router {
                 }
             };
             let slot = &mut slots[index];
-            let taken = match &entry.domain {
+            let taken = match &domain {
                 Some(domain) => slot.domains.iter().any(|(d, _)| d == domain),
                 None => slot.fallback.is_some(),
             };
@@ -90,7 +97,7 @@ impl Router {
             method_router =
                 apply_binding(method_router, &entry.path, &axum_path, &binding_registry);
             method_router = apply_middleware(method_router, &entry, &registry)?;
-            match entry.domain {
+            match domain {
                 Some(domain) => slots[index].domains.push((domain, method_router)),
                 None => slots[index].fallback = Some(method_router),
             }
