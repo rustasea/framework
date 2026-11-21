@@ -312,6 +312,20 @@ pub trait ModelOps: Model + Sized {
         restore::restore_by_key::<Self>(pool, &filter).await
     }
 
+    /// Load the row with primary key `id`, or `None` (Laravel `find`).
+    ///
+    /// Goes through [`Model::query`], so global scopes apply and a
+    /// soft-deleted row is not found; [`ModelOps::refresh`] reads it anyway.
+    async fn find(pool: &DbPool, id: Uuid) -> Result<Option<Self>>
+    where
+        Self: DeserializeOwned,
+    {
+        match Self::query().where_key(id).first(pool).await? {
+            Some(value) => Ok(Some(crate::casts::hydrate::<Self>(value)?)),
+            None => Ok(None),
+        }
+    }
+
     /// Re-read the row by primary key, including soft-deleted rows.
     async fn refresh(pool: &DbPool, id: Uuid) -> Result<Option<Self>>
     where
