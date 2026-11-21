@@ -55,8 +55,11 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 - 2026-11-21 - Generated apps register the database, cache, and queue service
   providers and connect their `database` queue connections after boot, like the
-  runnable app (M0; `feat(scaffold): register the framework service providers
-  in generated apps`).
+  runnable app. Generated apps open the default database at boot to register
+  database queue connections, so an unreachable database delays startup by up to
+  the pool acquire timeout, after which the app serves with those queue
+  connections unregistered (M0; `feat(scaffold): register the framework service
+  providers in generated apps`).
 - 2026-11-20 - Database, cache, and queue bindings at boot: `rustasea::services`
   adds `DatabaseServiceProvider` (a lazily connecting `ConnectionResolver`),
   `CacheServiceProvider` (a `CacheManager`), and `QueueServiceProvider` (the

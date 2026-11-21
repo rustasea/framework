@@ -351,6 +351,12 @@ cargo run
 
 The server binds `0.0.0.0:8000` by default (`APP_URL` overrides it).
 
+Because the shipped config sets `[queue] default = "database"`, the app opens
+the default database at boot to register the database queue connections. An
+unreachable database delays startup by up to the pool acquire timeout (30 s by
+default), after which the server starts with those queue connections
+unregistered.
+
 Console commands are run through the Artisan-style CLI:
 
 ```sh
