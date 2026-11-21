@@ -260,6 +260,20 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
   xtask ci` (`GAP-031`, `feat(xtask): [GAP-031] add lines:check 500-line linter
   and enforce in xtask ci`).
 
+### Fixed
+
+- 2026-11-21 - A query against a missing table returns
+  `OrmError::MissingTable` with the table name; it was an untyped
+  `OrmError::Storage` string and the variant was never constructed (M2;
+  `fix(orm): report a missing table as OrmError::MissingTable`).
+- 2026-11-21 - Insert-or-ignore runs and ignores conflicts on SQLite:
+  `InsertBuilder::insert_or_ignore` executes on a pool and reports whether the
+  row was inserted, and the SQLite shape is now `INSERT OR IGNORE`, where it was
+  a plain `INSERT` that failed on a conflict (M2; `fix(orm): execute
+  insert-or-ignore, and ignore conflicts on SQLite`).
+- 2026-11-21 - `ModelOps::find` loads a row by id, hiding soft-deleted rows
+  (M2; `feat(orm): add ModelOps::find`).
+
 ### Added (governance)
 
 - 2026-09-17 - Repository root governance documents: `CHANGELOG.md`,
