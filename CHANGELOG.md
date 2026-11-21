@@ -166,6 +166,10 @@ Per the same section, each tag is expected to pass `cargo xtask ci` and
 
 ### Changed
 
+- 2026-11-22 - A database URL with an unknown scheme is rejected with an error
+  that names only the scheme; it no longer echoes the URL, which could carry
+  credentials (`fix(orm): keep the database URL out of the unknown-scheme
+  error`).
 - 2026-11-21 - The bound connection resolver honours `DATABASE_URL` (then
   `DATABASE__URL`), which replaces the default connection as it does for the
   CLI. The runnable app's database user provider and queue dashboard now open
