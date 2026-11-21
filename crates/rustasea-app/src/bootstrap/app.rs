@@ -146,8 +146,9 @@ static SAMPLER_GUARD: std::sync::OnceLock<tokio::task::JoinHandle<()>> = std::sy
 ///
 /// Reads `[queue.dashboard]` from the boot-time config loader and always records
 /// it (so the route handlers can gate on `enabled`). When the dashboard is
-/// enabled *and* a tokio runtime is current, it spawns a task that resolves the
-/// database URL, connects the shared pool, installs it, and starts the sampler.
+/// enabled *and* a tokio runtime is current, it spawns a task that opens the
+/// default connection through the bound resolver, installs the pool, and starts
+/// the sampler.
 ///
 /// Best-effort and idempotent: a config or connection failure is logged and boot
 /// continues; the [`SAMPLER_GUARD`] ensures at most one sampler task is spawned
@@ -175,21 +176,22 @@ fn install_queue_dashboard(app: &Application) {
     let Ok(handle) = tokio::runtime::Handle::try_current() else {
         return;
     };
+    let Some(resolver) = rustasea::services::database(app) else {
+        tracing::error!("queue dashboard: no database is bound");
+        return;
+    };
     SAMPLER_GUARD.get_or_init(|| {
         handle.spawn(async move {
-            match resolve_database_url(&loader) {
-                Ok(url) => match rustasea::orm::DbPool::connect(&url).await {
-                    Ok(pool) => {
-                        rustasea_queue_dashboard::set_pool(pool.clone());
-                        rustasea_queue_dashboard::sampler::spawn_sampler(
-                            pool,
-                            config.sample_interval(),
-                            config.retention(),
-                        );
-                    }
-                    Err(error) => tracing::error!(%error, "queue dashboard pool failed"),
-                },
-                Err(error) => tracing::error!(%error, "queue dashboard database URL failed"),
+            match resolver.resolve(None).await {
+                Ok(pool) => {
+                    rustasea_queue_dashboard::set_pool(pool.clone());
+                    rustasea_queue_dashboard::sampler::spawn_sampler(
+                        pool,
+                        config.sample_interval(),
+                        config.retention(),
+                    );
+                }
+                Err(error) => tracing::error!(%error, "queue dashboard pool failed"),
             }
         })
     });
@@ -240,39 +242,6 @@ fn install_broadcasting(app: &Application) {
 /// No-op stand-in for [`install_broadcasting`] when the feature is off.
 #[cfg(not(feature = "broadcasting"))]
 fn install_broadcasting(_app: &Application) {}
-
-/// Resolve the database connection URL from the environment, then config.
-///
-/// Mirrors the CLI resolver (`crates/rustasea-cli/src/commands/ops/migration.rs`)
-/// so the app and the console agree: `DATABASE_URL` wins over the nested
-/// `DATABASE__URL` overlay, then the default connection from
-/// `config/database.toml` (`DatabaseConfig::resolve_url(None)`), then the legacy
-/// top-level `database_url` key.
-pub(crate) fn resolve_database_url(loader: &rustasea::ConfigLoader) -> Result<String, String> {
-    for key in ["DATABASE_URL", "DATABASE__URL"] {
-        if let Ok(url) = std::env::var(key) {
-            if !url.trim().is_empty() {
-                return Ok(url);
-            }
-        }
-    }
-    match rustasea::orm::DatabaseConfig::from_loader(loader)
-        .and_then(|config| config.resolve_url(None))
-    {
-        Ok(url) => Ok(url),
-        Err(rustasea::orm::OrmError::Connection(
-            rustasea::orm::ConnectionError::NotConfigured,
-        )) => loader
-            .get_key::<String>("database_url")
-            .ok()
-            .filter(|url| !url.trim().is_empty())
-            .ok_or_else(|| {
-                "database URL not configured — set `database.url` in config/database.toml or DATABASE_URL"
-                    .to_string()
-            }),
-        Err(error) => Err(error.to_string()),
-    }
-}
 
 /// Install the dev panic-location hook (ADOPT-010) when the app is in debug.
 ///
