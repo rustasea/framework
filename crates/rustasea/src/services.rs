@@ -4,7 +4,9 @@
 //!
 //! - [`DatabaseServiceProvider`] binds an [`orm::ConnectionResolver`] built from
 //!   `[database]` under [`DATABASE_KEY`]. It connects lazily, on the first
-//!   [`orm::ConnectionResolver::resolve`], so boot does no I/O.
+//!   [`orm::ConnectionResolver::resolve`], so boot does no I/O. `DATABASE_URL`
+//!   (or `DATABASE__URL`) replaces the default connection, as it does for the
+//!   CLI.
 //! - [`CacheServiceProvider`] binds a [`cache::CacheManager`] built from
 //!   `[cache]` under [`CACHE_KEY`].
 //! - [`QueueServiceProvider`] registers the `[queue]` connections that need no
@@ -69,11 +71,46 @@ impl ServiceProvider for DatabaseServiceProvider {
         let Some(loader) = app.config().cloned() else {
             return;
         };
-        match orm::ConnectionResolver::from_loader(&loader) {
-            Ok(resolver) => app.container.instance(DATABASE_KEY, Arc::new(resolver)),
+        match orm::DatabaseConfig::from_loader(&loader) {
+            Ok(mut config) => {
+                if let Some(url) = database_url_override() {
+                    override_default_connection(&mut config, url);
+                }
+                let resolver = orm::ConnectionResolver::new(config);
+                app.container.instance(DATABASE_KEY, Arc::new(resolver));
+            }
             Err(error) => eprintln!("database: invalid [database] config, not bound: {error}"),
         }
     }
+}
+
+/// The non-empty `DATABASE_URL`, else `DATABASE__URL`, from the environment.
+fn database_url_override() -> Option<String> {
+    ["DATABASE_URL", "DATABASE__URL"]
+        .into_iter()
+        .filter_map(|key| std::env::var(key).ok())
+        .map(|url| url.trim().to_string())
+        .find(|url| !url.is_empty())
+}
+
+/// Point the default connection (created if absent) at `url`, keeping the
+/// other named connections and the pool settings.
+fn override_default_connection(config: &mut orm::DatabaseConfig, url: String) {
+    let name = config.default_name().unwrap_or("default").to_string();
+    let pool = config
+        .connections
+        .get(&name)
+        .and_then(|connection| connection.pool.clone())
+        .or_else(|| config.pool.clone());
+    let driver = url.split(':').next().unwrap_or_default().to_string();
+    let connection = orm::ConnectionConfig {
+        driver,
+        url: Some(url),
+        pool,
+        ..orm::ConnectionConfig::default()
+    };
+    config.connections.insert(name.clone(), connection);
+    config.default = Some(name);
 }
 
 /// Binds the cache manager under [`CACHE_KEY`].
