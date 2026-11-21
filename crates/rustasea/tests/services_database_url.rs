@@ -212,8 +212,11 @@ async fn database_url_replaces_the_default_connection_only() {
         let from_env = tmp.join(format!("rustasea-dburl-env-malformed-{tag}.sqlite"));
         let dir = tmp.join(format!("rustasea-dburl-config-malformed-{tag}"));
         std::fs::create_dir_all(&dir).expect("config dir");
-        std::fs::write(dir.join("database.toml"), "[database]\ndefault = 123\n")
-            .expect("database.toml");
+        std::fs::write(
+            dir.join("database.toml"),
+            "[database]\nconnections = \"not-a-table\"\n",
+        )
+        .expect("database.toml");
         let env_url = format!("sqlite://{}?mode=rwc", from_env.display());
         std::env::remove_var("DATABASE__URL");
         std::env::set_var("DATABASE_URL", &env_url);
