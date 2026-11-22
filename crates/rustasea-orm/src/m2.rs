@@ -53,6 +53,15 @@ impl InsertBuilder {
 
     /// Emit `INSERT INTO t (cols) VALUES ($1..$n)`.
     pub fn to_sql(&self) -> Result<String> {
+        self.emit_insert("INSERT")
+    }
+
+    /// Render `{keyword} INTO t (cols) VALUES ($1..$n)`.
+    ///
+    /// Shared by the plain, `IGNORE`, and `OR IGNORE` insert shapes so the
+    /// keyword is the only difference between them. Rejects a builder with no
+    /// columns before any SQL is produced.
+    fn emit_insert(&self, keyword: &str) -> Result<String> {
         if self.columns.is_empty() {
             return Err(OrmError::InvalidState(
                 "insert builder has no columns".into(),
@@ -61,7 +70,7 @@ impl InsertBuilder {
         let cols = self.columns.join(", ");
         let placeholders: Vec<String> = (1..=self.columns.len()).map(|i| format!("${i}")).collect();
         Ok(format!(
-            "INSERT INTO {} ({cols}) VALUES ({})",
+            "{keyword} INTO {} ({cols}) VALUES ({})",
             self.table,
             placeholders.join(", ")
         ))
@@ -83,32 +92,22 @@ impl InsertBuilder {
 
     /// Emit `INSERT IGNORE INTO …` (MySQL insertOrIgnore).
     pub fn ignore_sql(&self) -> Result<String> {
-        if self.columns.is_empty() {
-            return Err(OrmError::InvalidState(
-                "insert builder has no columns".into(),
-            ));
-        }
-        let cols = self.columns.join(", ");
-        let placeholders: Vec<String> = (1..=self.columns.len()).map(|i| format!("${i}")).collect();
-        Ok(format!(
-            "INSERT IGNORE INTO {} ({cols}) VALUES ({})",
-            self.table,
-            placeholders.join(", ")
-        ))
+        self.emit_insert("INSERT IGNORE")
     }
 
     /// Emit `INSERT OR IGNORE INTO …` (SQLite insertOrIgnore).
     pub fn or_ignore_sql(&self) -> Result<String> {
-        Ok(self
-            .to_sql()?
-            .replacen("INSERT INTO", "INSERT OR IGNORE INTO", 1))
+        self.emit_insert("INSERT OR IGNORE")
     }
 
     /// Emit the dialect-specific insert-or-ignore shape (`saveOrIgnore`).
     ///
     /// Postgres uses `ON CONFLICT (id) DO NOTHING RETURNING id`, MySQL uses
     /// `INSERT IGNORE`, and SQLite uses `INSERT OR IGNORE`; an unknown dialect
-    /// gets a plain INSERT.
+    /// gets a plain INSERT. This only emits SQL text and targets the `id`
+    /// primary key on Postgres, whereas [`InsertBuilder::insert_or_ignore`]
+    /// executes the statement and lets Postgres ignore any unique/exclusion
+    /// conflict (with no conflict target).
     pub fn save_or_ignore_sql(&self, dialect: &str) -> Result<String> {
         match dialect {
             "postgres" => self.on_conflict_returning_sql(&["id"]),
@@ -118,18 +117,28 @@ impl InsertBuilder {
         }
     }
 
-    /// Run the insert on `pool`, skipping the row when it would violate a
-    /// primary-key or unique constraint (Laravel `insertOrIgnore`).
+    /// Run the insert on `pool`, skipping the row when the dialect suppresses
+    /// the failure (Laravel `insertOrIgnore`).
     ///
-    /// The statement follows the pool's runtime dialect: `INSERT OR IGNORE`
-    /// (SQLite), `INSERT IGNORE` (MySQL), or `ON CONFLICT DO NOTHING` with no
-    /// conflict target (Postgres), so a conflict on any unique column is skipped
-    /// on every driver. Returns `true` when the row was inserted.
+    /// This is **not** a validation path: the suppression is dialect-specific
+    /// and can hide a data error as easily as a duplicate.
+    ///
+    /// - SQLite (`INSERT OR IGNORE`) and MySQL (`INSERT IGNORE`) suppress every
+    ///   insert-time constraint or data error, not only uniqueness. A `NOT NULL`
+    ///   or `CHECK` violation therefore returns `Ok(false)` — the row is skipped
+    ///   and the result is indistinguishable from a duplicate.
+    /// - MySQL additionally coerces or truncates an invalid value and inserts
+    ///   it, returning `Ok(true)` with altered data.
+    /// - Postgres (`ON CONFLICT DO NOTHING`, no conflict target) ignores only
+    ///   unique/exclusion conflicts, so the same data error is returned as an
+    ///   error instead of being swallowed.
+    ///
+    /// Returns `true` when a row was inserted.
     ///
     /// # Errors
     ///
     /// [`OrmError::InvalidState`] for a builder with no columns, or the driver's
-    /// error for any failure other than an ignored conflict.
+    /// error for any failure the dialect does not suppress.
     pub async fn insert_or_ignore(&self, pool: &crate::db::DbPool) -> Result<bool> {
         let sql = match pool.dialect() {
             "postgres" => format!("{} ON CONFLICT DO NOTHING", self.to_sql()?),
