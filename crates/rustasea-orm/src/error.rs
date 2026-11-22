@@ -106,7 +106,7 @@ impl From<sqlx::Error> for OrmError {
     /// [`OrmError::MissingTable`] when the driver reports an unknown table.
     fn from(error: sqlx::Error) -> Self {
         if let sqlx::Error::Database(database) = &error {
-            if let Some(table) = missing_table(database.message()) {
+            if let Some(table) = missing_table_from_error(&**database) {
                 return OrmError::MissingTable { table };
             }
         }
@@ -114,20 +114,56 @@ impl From<sqlx::Error> for OrmError {
     }
 }
 
+/// The table a driver error reports as missing, preferring the structured
+/// driver code over the message heuristic.
+///
+/// Postgres reports `undefined_table` as SQLSTATE `42P01`; MySQL reports
+/// `ER_NO_SUCH_TABLE` (error number `1146`) as SQLSTATE `42S02`. sqlx's
+/// `DatabaseError::code()` surfaces the SQLSTATE, so both are classified from the
+/// code before the message is parsed. SQLite reports only the generic
+/// `SQLITE_ERROR` code for a missing table, so it and any unknown driver fall
+/// back to [`missing_table`].
+fn missing_table_from_error(database: &dyn sqlx::error::DatabaseError) -> Option<String> {
+    let structured = match database.code().as_deref() {
+        Some("42P01") => table_from_quoted(database.message(), '"'),
+        Some("42S02") => table_from_quoted(database.message(), '\''),
+        _ => None,
+    };
+    structured.or_else(|| missing_table(database.message()))
+}
+
+/// The table named by the first `quote`-delimited identifier in `message`.
+fn table_from_quoted(message: &str, quote: char) -> Option<String> {
+    table_name(message.split(quote).nth(1)?)
+}
+
 /// The table a driver error message reports as missing, without its schema.
 ///
 /// SQLite: `no such table: t`; Postgres: `relation "t" does not exist`; MySQL:
-/// `Table 'db.t' doesn't exist`.
+/// `Table 'db.t' doesn't exist`. The pattern is matched anywhere in `message`, so
+/// a driver-wrapped prefix does not defeat detection.
 fn missing_table(message: &str) -> Option<String> {
-    let named = if let Some(rest) = message.strip_prefix("no such table: ") {
-        rest.trim()
-    } else if message.starts_with("relation \"") && message.ends_with("\" does not exist") {
-        message.split('"').nth(1)?
-    } else if message.starts_with("Table '") && message.ends_with("' doesn't exist") {
-        message.split('\'').nth(1)?
-    } else {
-        return None;
-    };
+    if let Some(idx) = message.find("no such table: ") {
+        return table_name(&message[idx + "no such table: ".len()..]);
+    }
+    if let Some(idx) = message.find("relation \"") {
+        let rest = &message[idx + "relation \"".len()..];
+        if let Some(end) = rest.find("\" does not exist") {
+            return table_name(&rest[..end]);
+        }
+    }
+    if let Some(idx) = message.find("Table '") {
+        let rest = &message[idx + "Table '".len()..];
+        if let Some(end) = rest.find("' doesn't exist") {
+            return table_name(&rest[..end]);
+        }
+    }
+    None
+}
+
+/// Strip a schema qualifier from `named` and reject an empty table name.
+fn table_name(named: &str) -> Option<String> {
+    let named = named.trim();
     let table = named.rsplit('.').next().unwrap_or(named);
     (!table.is_empty()).then(|| table.to_string())
 }
@@ -261,5 +297,30 @@ mod tests {
         );
         assert_eq!(missing_table("near \"SELEC\": syntax error"), None);
         assert_eq!(missing_table("no such column: name"), None);
+    }
+
+    /// A message reporting that an object already exists is not a missing table.
+    #[test]
+    fn missing_table_ignores_already_exists() {
+        assert_eq!(missing_table("relation \"widgets\" already exists"), None);
+        assert_eq!(missing_table("Table 'app.widgets' already exists"), None);
+        assert_eq!(missing_table("table widgets already exists"), None);
+    }
+
+    /// A driver-wrapped prefix does not defeat the message heuristic.
+    #[test]
+    fn missing_table_matches_wrapped_messages() {
+        assert_eq!(
+            missing_table("error returned from database: no such table: widgets").as_deref(),
+            Some("widgets")
+        );
+        assert_eq!(
+            missing_table("driver error: relation \"public.widgets\" does not exist").as_deref(),
+            Some("widgets")
+        );
+        assert_eq!(
+            missing_table("driver error: Table 'app.widgets' doesn't exist").as_deref(),
+            Some("widgets")
+        );
     }
 }
