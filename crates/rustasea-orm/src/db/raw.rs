@@ -6,7 +6,8 @@
 //! affected row count. Both are thin, explicitly named entry points over the
 //! driver dispatch in [`crate::db::exec`], so they inherit the same `$n`
 //! placeholder adaptation (rewritten to `?` on MySQL) and the same typed
-//! [`OrmError::Storage`] mapping for driver failures.
+//! [`OrmError::Storage`] / [`OrmError::MissingTable`] mapping for driver
+//! failures.
 //!
 //! # SQL-injection safety
 //!
@@ -33,7 +34,9 @@ impl DbPool {
     ///
     /// # Errors
     ///
-    /// A syntax error, missing table, or type mismatch surfaces as
+    /// A missing table surfaces as
+    /// [`OrmError::MissingTable`](crate::error::OrmError::MissingTable); a syntax
+    /// error or type mismatch surfaces as
     /// [`OrmError::Storage`](crate::error::OrmError::Storage); a pool with no
     /// compiled-in driver surfaces as
     /// [`OrmError::UnsupportedDriver`](crate::error::OrmError::UnsupportedDriver).
@@ -50,7 +53,9 @@ impl DbPool {
     ///
     /// # Errors
     ///
-    /// A syntax error or driver failure surfaces as
+    /// A missing table surfaces as
+    /// [`OrmError::MissingTable`](crate::error::OrmError::MissingTable); a syntax
+    /// error or other driver failure surfaces as
     /// [`OrmError::Storage`](crate::error::OrmError::Storage).
     pub async fn execute_raw(&self, sql: &str, bindings: &[Value]) -> Result<u64> {
         self.execute_bind(sql, bindings).await

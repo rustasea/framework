@@ -117,17 +117,16 @@ struct UpsertResult { inserted: usize, updated: usize }
 
 | ID | Component | Status | Description |
 |----|-----------|--------|-------------|
-| F-M2-BLD-01 | Builder core | Partial | `where`/`orWhere`/`find`/`firstOrFail`/`paginate` |
+| F-M2-BLD-01 | Builder core | Done | `where`/`orWhere`/`find`/`firstOrFail`/`paginate` |
 | F-M2-BLD-02 | Additions | Partial | `chunkBy`/`insertOrIgnoreReturning`/`saveOrIgnore`/`refreshForUpdate`/`StraightJoin` |
 | F-M2-BLD-03 | Upsert/Delete | Done | strict `uniqueBy` + MySQL DELETE JOIN |
 | F-M2-BLD-04 | Locks/Tx | Done | `forUpdate`/`sharedLock` + `db.transaction` |
 | F-M2-BLD-05 | Tests | Partial | chunk 10k, upsert empty, MySQL delete join snapshot |
 
-> **As-built note (2026-11-18):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
+> **As-built note (2026-11-18, updated 2026-11-21):** the Status column was checked against the source tree on this date; the Component and Description columns are the original plan and are unchanged. `Done` means every element named in the row exists in reachable non-test code (for a Tests row: a test exists for each named case). Tests were read, not run. Live status: `docs/milestones.md`.
 >
 > Open items:
-> - `F-M2-BLD-01` — `where_eq` / `or_where_eq` / `where_op`, `first_or_fail`, and `paginate` are real; there is no `find` method — the equivalent is `Model::query().where_key(id).first(pool)`.
-> - `F-M2-BLD-02` — `chunk_by` and `refresh_for_update` run queries; `insert_or_ignore_returning` and `save_or_ignore_sql` only return SQL text that nothing executes (`crates/rustasea-orm/src/model.rs:425`), and `straight_join` depends on the compile-time dialect, not the live pool.
+> - `F-M2-BLD-02` — `chunk_by`, `refresh_for_update`, and `InsertBuilder::insert_or_ignore` (`crates/rustasea-orm/src/m2.rs:133`) run queries; `straight_join` depends on the compile-time dialect, not the live pool, and `Model::insert_or_ignore_returning` still only returns SQL text.
 > - `F-M2-BLD-05` — the empty `uniqueBy` case is tested; the 10k test covers the window helper rather than the query-running `chunk_by`, and there is no MySQL `DELETE JOIN` snapshot test (`delete_join_sql` is called by no test).
 
 ## 10. Cross-References
